@@ -1,29 +1,105 @@
 # Copyright (c) 2024–2026 Tomshley
 #
 # Licensed under the Apache License, Version 2.0
+#
+# Internal CI for cicd-pipelines.
+# Runs conformance tests on every push, builds runner images on develop/release/tag.
 
 include:
-  - local: /gitlab/templates/.stages-base.yml
-  - local: /gitlab/templates/.gitflow-base.yml
+  - local: gitlab/ci/.stages-base.yml
+  - local: gitlab/ci/.gitflow-base.yml
+  - local: gitlab/ci/.gitflow-branch-policy.yml
+  - local: gitlab/ci/.gitflow-jobs.yml
+  - local: gitlab/ci/.container-tags.yml
+  - local: gitlab/ci/.artifact-publish-policy.yml
+  - local: gitlab/ci/.security-scanning.yml
+  - local: gitlab/ci/.docker-runtime.yml
 
-validate-methodology:
-  stage: test
-  image: mikefarah/yq:4
+# ── Conformance ──────────────────────────────────────────────────────────────
+
+conformance:
+  stage: .pre
+  image: alpine:3.23
+  before_script:
+    - apk add --no-cache bash grep gawk
   script:
-    - apk add --no-cache bash grep
+    - bash common/tests/conformance.sh
     - bash common/tests/validate-gitlab.sh
+    - bash common/tests/validate-bitbucket.sh
+  rules:
+    - when: always
 
-lint-fixtures:
-  stage: test
-  image: alpine
+# ── Build Runner Images ──────────────────────────────────────────────────────
+
+build-runner-images:
+  extends:
+    - .tomshley-docker-runtime
+  stage: build
   script:
-    - apk add --no-cache curl jq
+    - cd gitlab
     - |
-      for fixture in common/tests/fixtures/*.yml; do
-        echo "Linting $fixture..."
-        curl --fail --silent \
-          --header "PRIVATE-TOKEN: ${GITLAB_LINT_TOKEN}" \
-          --data-urlencode "content@${fixture}" \
-          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint" \
-          | jq -e '.valid == true' || exit 1
-      done
+      export TAG="${TOMSHLEY_CICD_BUILD_REVISION:-${CI_COMMIT_SHORT_SHA}}"
+      export TAG_LATEST="${CI_COMMIT_REF_SLUG}-latest"
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        export TAG="$CI_COMMIT_TAG"
+        export TAG_LATEST="latest"
+      fi
+    - docker buildx bake -f docker-bake.hcl
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_COMMIT_TAG'
+
+# ── Publish Runner Images ────────────────────────────────────────────────────
+
+publish-runner-images:
+  extends:
+    - .tomshley-docker-runtime
+    - .flow-artifact-publish
+  stage: deploy
+  script:
+    - cd gitlab
+    - |
+      export TAG="${TOMSHLEY_CICD_BUILD_REVISION:-${CI_COMMIT_SHORT_SHA}}"
+      export TAG_LATEST="${CI_COMMIT_REF_SLUG}-latest"
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        export TAG="$CI_COMMIT_TAG"
+        export TAG_LATEST="latest"
+      fi
+    - docker buildx bake -f docker-bake.hcl --push
+
+# ── Flow Jobs ────────────────────────────────────────────────────────────────
+
+feature-start:
+  extends: .flow-feature-start
+  image: alpine:3.23
+  before_script:
+    - apk add --no-cache bash curl git
+  script:
+    - echo "Feature MR auto-creation (future)"
+
+release-start:
+  extends: .flow-release-start
+  image: alpine:3.23
+  before_script:
+    - apk add --no-cache bash curl git gawk
+  script:
+    - echo "Release branch creation (uses runner scripts when available)"
+
+release-finish:
+  extends: .flow-release-finish
+  image: alpine:3.23
+  before_script:
+    - apk add --no-cache bash curl git gawk
+  script:
+    - echo "Release finish (uses runner scripts when available)"
+
+hotfix-finish:
+  extends: .flow-hotfix-finish
+  image: alpine:3.23
+  before_script:
+    - apk add --no-cache bash curl git gawk
+  script:
+    - echo "Hotfix finish (uses runner scripts when available)"

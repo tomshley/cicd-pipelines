@@ -1,0 +1,28 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+.before-container-tags:
+  before_script:
+    - |
+      set -e
+
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        # ------------------------------------------------------------
+        # Tag (release) pipeline
+        # ------------------------------------------------------------
+        export BASE_CONTAINERS_TAG="$CI_COMMIT_TAG"
+        export BASE_CONTAINERS_TAG_LATEST="latest"
+      else
+        # ------------------------------------------------------------
+        # Branch / MR pipeline
+        # ------------------------------------------------------------
+        REF_NAME="$CI_COMMIT_REF_SLUG"
+
+        export BASE_CONTAINERS_TAG="${REF_NAME}-${CI_COMMIT_SHORT_SHA}"
+        export BASE_CONTAINERS_TAG_LATEST="${REF_NAME}-latest"
+      fi
+
+      echo "Container tags resolved:"
+      echo "  BASE_CONTAINERS_TAG        = $BASE_CONTAINERS_TAG"
+      echo "  BASE_CONTAINERS_TAG_LATEST = $BASE_CONTAINERS_TAG_LATEST"

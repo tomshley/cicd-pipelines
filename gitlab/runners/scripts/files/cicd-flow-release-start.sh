@@ -23,17 +23,17 @@ cd "${CI_PROJECT_DIR}" || exit
 
 
 # set the -sbt- build to release not, snapshot
-echo "release script running ${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}"
+echo "release script running ${TOMSHLEY_CICD_BUILD_VERSION_NEXT}"
 
 . "/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-gitconfig.sh"
 
 git fetch
-git checkout -b "release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}"
+git checkout -b "release/${TOMSHLEY_CICD_BUILD_VERSION_NEXT}"
 
-echo "${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}" > "${TOMSHLEY_PROJECT_VERSION_SRC}"
+echo "${TOMSHLEY_CICD_BUILD_VERSION_NEXT}" > "${TOMSHLEY_PROJECT_VERSION_SRC}"
 
 git add "${TOMSHLEY_PROJECT_VERSION_SRC}"
 
-git commit -m "$(git log --format='%B' -n 1) | bumping version to ${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}"
+git commit -m "$(git log --format='%B' -n 1) | bumping version to ${TOMSHLEY_CICD_BUILD_VERSION_NEXT}"
 
-git push --set-upstream origin "release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}"
+git push --set-upstream origin "release/${TOMSHLEY_CICD_BUILD_VERSION_NEXT}"

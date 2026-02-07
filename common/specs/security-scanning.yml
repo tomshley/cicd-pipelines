@@ -1,0 +1,21 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Required security scanning categories.
+# Every platform must provide implementations for these.
+
+pre_build:
+  - name: sast
+    stage: "security.pre-build"
+  - name: secret_detection
+    stage: "security.pre-build"
+  - name: dependency_scanning
+    stage: "security.pre-build"
+  - name: license_scanning
+    stage: "security.pre-build"
+
+post_build:
+  - name: container_scanning
+    stage: "security.post-build"
+    note: "Opt-in; requires a built container image"
