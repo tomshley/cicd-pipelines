@@ -24,7 +24,6 @@ curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devop
 if test -f "${CI_PROJECT_DIR}/.tfstate.env"; then
   # shellcheck disable=SC1097
   while IFS== read -r key value; do
-    # shellcheck disable=SC2163
-    printf -v "$key" %s "$value" && export "$key"
+    export "$key=$value"
   done <"${CI_PROJECT_DIR}/.tfstate.env"
 fi
