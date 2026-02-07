@@ -1,20 +1,5 @@
-#
-# Copyright 2023 Tomshley LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# @author Thomas Schena @sgoggles <https://github.com/sgoggles> | <https://gitlab.com/sgoggles>
-#
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024–2026 Tomshley LLC
 
 FROM --platform=$BUILDPLATFORM tools_base_docker_build_ref
 
@@ -43,10 +28,30 @@ COPY files/cicd-flow-release-publish-prep.sh /opt/tomshley/provisioning/tools/ci
 COPY files/cicd-flow-release-start.sh /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-start.sh
 COPY files/gitlab-terraform.sh /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/gitlab-terraform.sh
 
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/*.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-local-validate.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-remote-plan-apply.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-remote-plan-no-lock.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-remote-validate.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitconfig.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlfs.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-dockers.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-gitconfig.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-tf-backends-local.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-tf-backends-remote.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-dockers-build-push.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-dockers-build.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-exports.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-gitlab-merge-request.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-merge-upstream.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-update.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-hotfix-finish.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-finish.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-publish.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-publish-prep.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-start.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/gitlab-terraform.sh
 
 WORKDIR /
-
-# use this for direct access to TF, not for GitLab Usage: ENTRYPOINT ["terraform"]
 ENTRYPOINT []
-

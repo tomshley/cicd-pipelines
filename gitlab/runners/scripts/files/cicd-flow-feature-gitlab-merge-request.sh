@@ -24,7 +24,7 @@ cd "${CI_PROJECT_DIR}" || exit
 GL_MERGE_REQUEST_BODY="{
 \"project_id\": ${CI_PROJECT_ID},
 \"source_branch\": \"${CI_COMMIT_REF_NAME}\",
-\"target_branch\": \"${TOMSHLEY_BREAKGROUND_CI_MERGE_TARGET}\",
+\"target_branch\": \"${TOMSHLEY_CICD_CI_MERGE_TARGET}\",
 \"remove_source_branch\": false,
 \"force_remove_source_branch\": false,
 \"allow_collaboration\": true,

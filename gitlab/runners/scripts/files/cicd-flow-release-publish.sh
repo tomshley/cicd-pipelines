@@ -26,5 +26,5 @@ cd "${CI_PROJECT_DIR}" || exit
 
 echo "Running Publish"
 echo "push -u"
-git push -u origin HEAD:release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION}
+git push -u origin HEAD:release/${TOMSHLEY_CICD_BUILD_VERSION}
 

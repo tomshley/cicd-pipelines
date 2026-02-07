@@ -25,6 +25,6 @@ if test -f "${CI_PROJECT_DIR}/.tfstate.env"; then
   # shellcheck disable=SC1097
   while IFS== read -r key value; do
     # shellcheck disable=SC2163
-    export "$key=$value"
+    printf -v "$key" %s "$value" && export "$key"
   done <"${CI_PROJECT_DIR}/.tfstate.env"
 fi

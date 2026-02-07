@@ -1,5 +1,37 @@
-.DS_Store
+# --- BEGIN multi-project ignores ---
+
+# IDE
 .idea/
-*.swp
-*.swo
-*~
+*.iml
+.metals/
+.vscode/
+.windsurf/
+
+# Logs
+*.log
+
+# Secrets
+*.env
+.secure_files/*
+!.secure_files/
+!.secure_files/*.example
+cache.config
+credentials.config
+endpoint.config
+
+# OS
+.DS_Store
+Thumbs.db
+
+# --- END multi-project ignores ---
+
+# SBT
+.bsp/
+target/
+project/project/
+project/target/
+.sbt/
+
+# Compiled
+*.class
+*.jar

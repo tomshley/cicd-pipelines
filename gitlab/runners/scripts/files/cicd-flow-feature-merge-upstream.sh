@@ -23,7 +23,7 @@ cd "${CI_PROJECT_DIR}" || exit
 
 
 # set the -sbt- build to release not, snapshot
-echo "integration script running ${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}"
+echo "integration script running ${TOMSHLEY_CICD_BUILD_VERSION_NEXT}"
 
 . "/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-gitconfig.sh"
 

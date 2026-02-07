@@ -22,7 +22,8 @@
 . "/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitconfig.sh"
 . "/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlfs.sh"
 
-CI_PROJECT_URL_TRIMMED=$(echo "${CI_PROJECT_URL}" | sed 's/https\?:\/\///')
+CI_PROJECT_URL_TRIMMED=$(echo ${CI_PROJECT_URL} | sed 's/https\?:\/\///')
 GITLAB_PROJECT_HTTPS_URL="https://${GITLAB_USER_LOGIN}:${GL_PASSWORD}@${CI_PROJECT_URL_TRIMMED}.git"
+echo "${GITLAB_PROJECT_HTTPS_URL}"
 git remote set-url origin "${GITLAB_PROJECT_HTTPS_URL}"
 

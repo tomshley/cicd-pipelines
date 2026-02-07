@@ -1,0 +1,33 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+.tomshley-docker-runtime:
+  extends:
+    - .before-container-tags
+
+  image: docker:27.3.1
+  services:
+    - name: docker:27.3.1-dind
+      alias: docker
+
+  tags:
+    - saas-linux-xlarge-amd64
+
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_CLI_EXPERIMENTAL: enabled
+
+  before_script:
+    - !reference [.before-container-tags, before_script]
+    - |
+      if [ -n "$CI_REGISTRY_USER" ] && [ -n "$CI_REGISTRY_PASSWORD" ]; then
+        docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+      fi
+    - |
+      BUILDX_NAME="${CI_PROJECT_NAME}_buildx"
+      docker buildx inspect "$BUILDX_NAME" >/dev/null 2>&1 || \
+        docker buildx create --name "$BUILDX_NAME" --driver docker-container --use
+      docker buildx inspect "$BUILDX_NAME" --bootstrap

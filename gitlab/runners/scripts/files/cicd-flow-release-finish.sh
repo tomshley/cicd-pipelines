@@ -28,14 +28,14 @@ cd "${CI_PROJECT_DIR}" || exit
 export GIT_MERGE_AUTOEDIT=no
 git checkout main
 git pull origin main --rebase --prune
-git merge --no-ff --no-edit release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION} -m "${TOMSHLEY_FLOW_RELEASE_FINISH_MESSAGE} | main"
-git tag -a ${TOMSHLEY_BREAKGROUND_BUILD_VERSION} -m "${TOMSHLEY_FLOW_RELEASE_FINISH_MESSAGE}"
+git merge --no-ff --no-edit release/${TOMSHLEY_CICD_BUILD_VERSION} -m "${TOMSHLEY_FLOW_RELEASE_FINISH_MESSAGE} | main"
+git tag -a ${TOMSHLEY_CICD_BUILD_VERSION} -m "${TOMSHLEY_FLOW_RELEASE_FINISH_MESSAGE}"
 git checkout develop
 git pull origin develop --rebase --prune
-git merge --no-ff --no-edit release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION} -m "${TOMSHLEY_FLOW_RELEASE_FINISH_MESSAGE} | develop | [skip ci]"; \
-git branch -d release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION}
+git merge --no-ff --no-edit release/${TOMSHLEY_CICD_BUILD_VERSION} -m "${TOMSHLEY_FLOW_RELEASE_FINISH_MESSAGE} | develop | [skip ci]"; \
+git branch -d release/${TOMSHLEY_CICD_BUILD_VERSION}
 git push origin main
 git push origin develop
 git push origin --tags
-git push origin :release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION}
+git push origin :release/${TOMSHLEY_CICD_BUILD_VERSION}
 unset GIT_MERGE_AUTOEDIT

@@ -1,20 +1,51 @@
 # Roadmap
 
-This document outlines **intent**, not commitments.
+## Versioned Milestones
 
-## Short Term
+### v0.0.1 — GitLab Foundation (current)
 
-- Finalize OSS documentation and branding
-- Stabilize project structure
+- [x] Common specs (10 files): naming-conventions, platform-status, stage-ordering,
+      flow-types, flow-jobs, publish-policy, container-tags, security-scanning,
+      runtimes, required-implementations
+- [x] Conformance tests: conformance.sh, validate-gitlab.sh, validate-bitbucket.sh
+- [x] GitLab CI templates (13 files): methodology + runtimes
+- [x] GitLab runner images: base, scripts (24 shell scripts), sbtdockertofu
+- [x] Build infrastructure: docker-bake.hcl, gitlab/Makefile
+- [x] Root Makefile, internal .gitlab-ci.yml
+- [x] Documentation: README.md, ROADMAP.md, SECURITY.md, .gitattributes
 
-## Medium Term
+### v0.1.0 — Bitbucket Pipelines
 
-- Improved documentation
-- CI automation improvements
+- [ ] Bitbucket CI templates implementing common specs
+- [ ] Bitbucket runner images (if needed — Bitbucket uses Atlassian-hosted runners)
+- [ ] Platform status: bitbucket → active
 
-## Long Term
+### v0.2.0 — Complete Pipelines
 
-- Versioned releases
-- Broader OSS adoption
+- [ ] Batteries-included `pipeline-*.yml` for all 8 categories (GitLab first)
+- [ ] Bitbucket pipeline equivalents
+- [ ] Consumer usage examples
 
-The roadmap may evolve as requirements and priorities change.
+### v0.3.0 — Additional Runners
+
+- [ ] `polyglot` runner image (SBT + Python + Node — for schema-registry)
+- [ ] `infratofu` runner image (OpenTofu + Python — for terraform)
+- [ ] `acceptance` runner image (Python + Node — for acceptance tests)
+
+### v0.4.0 — GitHub Actions
+
+- [ ] `github/ci/` composite actions + reusable workflows
+- [ ] Platform status: github → active
+
+### v1.0.0 — Stable
+
+- [ ] All platforms active, full pipeline + template conformance
+- [ ] Semver stability guarantee
+
+## Issue Tracking
+
+GitLab Issues with these labels:
+
+- **Platform:** `platform:gitlab`, `platform:bitbucket`, `platform:github`
+- **Type:** `type:template`, `type:pipeline`, `type:runner`, `type:spec`, `type:docs`
+- **Priority:** `priority:high`, `priority:medium`, `priority:low`

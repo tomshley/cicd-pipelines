@@ -27,9 +27,9 @@ echo "Running Publish Prep"
 echo "fetch"
 git fetch
 echo "checkout"
-git checkout release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION}
+git checkout release/${TOMSHLEY_CICD_BUILD_VERSION}
 echo "branch"
-git branch --set-upstream-to origin/release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION}
+git branch --set-upstream-to origin/release/${TOMSHLEY_CICD_BUILD_VERSION}
 echo "pull"
-git pull origin release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION} --rebase --prune
+git pull origin release/${TOMSHLEY_CICD_BUILD_VERSION} --rebase --prune
 

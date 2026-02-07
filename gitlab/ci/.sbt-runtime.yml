@@ -1,0 +1,18 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+.tomshley-sbt-runtime:
+  image:
+    name: "${CI_REGISTRY}/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines/cicd-gitlab-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
+  tags:
+    - saas-linux-medium-amd64
+  variables:
+    CICD_PIPELINES_RUNNER_TAG: "latest"
+  before_script:
+    - |
+      echo "=== SBT Runtime Bootstrap ==="
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
+    - |
+      CICD_EXPORTS="/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh"
+      if [ -f "$CICD_EXPORTS" ]; then source "$CICD_EXPORTS"; fi

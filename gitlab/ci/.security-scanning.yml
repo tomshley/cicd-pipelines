@@ -35,4 +35,4 @@ license_scanning:
 #   container_scanning:
 #     stage: security.post-build
 #     variables:
-#       CS_IMAGE: "$CI_REGISTRY_IMAGE:$TOMSHLEY_BREAKGROUND_BUILD_REVISION"
+#       CS_IMAGE: "$CI_REGISTRY_IMAGE:$TOMSHLEY_CICD_BUILD_REVISION"

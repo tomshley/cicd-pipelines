@@ -22,10 +22,10 @@
 cd "${CI_PROJECT_DIR}" || exit
 
 git fetch
-git checkout -b "release/${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}" develop
+git checkout -b "release/${TOMSHLEY_CICD_BUILD_VERSION_NEXT}" develop
 
-echo "${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}" > "${TOMSHLEY_PROJECT_VERSION_SRC}"
+echo "${TOMSHLEY_CICD_BUILD_VERSION_NEXT}" > "${TOMSHLEY_PROJECT_VERSION_SRC}"
 
 git add "${TOMSHLEY_PROJECT_VERSION_SRC}"
 
-git commit -m "$(git log --format='%B' -n 1) | bumping version to ${TOMSHLEY_BREAKGROUND_BUILD_VERSION_NEXT}"
+git commit -m "$(git log --format='%B' -n 1) | bumping version to ${TOMSHLEY_CICD_BUILD_VERSION_NEXT}"
