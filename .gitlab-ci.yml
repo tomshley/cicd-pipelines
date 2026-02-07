@@ -1,0 +1,29 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+include:
+  - local: /gitlab/templates/.stages-base.yml
+  - local: /gitlab/templates/.gitflow-base.yml
+
+validate-methodology:
+  stage: test
+  image: mikefarah/yq:4
+  script:
+    - apk add --no-cache bash grep
+    - bash common/tests/validate-gitlab.sh
+
+lint-fixtures:
+  stage: test
+  image: alpine
+  script:
+    - apk add --no-cache curl jq
+    - |
+      for fixture in common/tests/fixtures/*.yml; do
+        echo "Linting $fixture..."
+        curl --fail --silent \
+          --header "PRIVATE-TOKEN: ${GITLAB_LINT_TOKEN}" \
+          --data-urlencode "content@${fixture}" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint" \
+          | jq -e '.valid == true' || exit 1
+      done

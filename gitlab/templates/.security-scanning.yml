@@ -1,0 +1,38 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Pre-build security scanning
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/License-Scanning.gitlab-ci.yml
+
+variables:
+  SECRET_DETECTION_ENABLED: 'true'
+  DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
+
+# Stage overrides to align with .stages-base.yml
+sast:
+  stage: security.pre-build
+
+secret_detection:
+  stage: security.pre-build
+
+dependency_scanning:
+  stage: security.pre-build
+
+license_scanning:
+  stage: security.pre-build
+
+# Post-build scanning (container scanning) is opt-in.
+# Consumer adds this to their .gitlab-ci.yml when they have a built image:
+#
+#   include:
+#     - template: Security/Container-Scanning.gitlab-ci.yml
+#
+#   container_scanning:
+#     stage: security.post-build
+#     variables:
+#       CS_IMAGE: "$CI_REGISTRY_IMAGE:$TOMSHLEY_BREAKGROUND_BUILD_REVISION"
