@@ -1,0 +1,25 @@
+flow_jobs:
+  - name: flow-feature-start
+    stage: .pre
+    trigger_flow: feature
+    type: automatic
+
+  - name: flow-release-start
+    stage: .post
+    trigger_flow: develop
+    type: manual
+
+  - name: flow-release-publish
+    stage: deploy
+    trigger_flow: release
+    type: automatic
+
+  - name: flow-release-finish
+    stage: .post
+    trigger_flow: release
+    type: manual
+
+  - name: flow-hotfix-finish
+    stage: .post
+    trigger_flow: hotfix
+    type: manual
