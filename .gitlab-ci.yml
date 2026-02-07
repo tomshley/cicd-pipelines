@@ -69,6 +69,12 @@ publish-runner-images:
         export TAG_LATEST="latest"
       fi
     - docker buildx bake -f docker-bake.hcl --push
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_COMMIT_TAG'
 
 # ── Flow Jobs ────────────────────────────────────────────────────────────────
 

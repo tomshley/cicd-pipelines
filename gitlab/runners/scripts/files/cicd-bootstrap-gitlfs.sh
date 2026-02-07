@@ -22,6 +22,6 @@
 if git grep -q filter=lfs -- .gitattributes '**/.gitattributes'
 then
      git lfs install
-else git lfs uinstall
+else git lfs uninstall
 fi
 

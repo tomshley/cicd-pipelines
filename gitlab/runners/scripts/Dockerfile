@@ -28,30 +28,7 @@ COPY files/cicd-flow-release-publish-prep.sh /opt/tomshley/provisioning/tools/ci
 COPY files/cicd-flow-release-start.sh /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-start.sh
 COPY files/gitlab-terraform.sh /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/gitlab-terraform.sh
 
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-local-validate.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-remote-plan-apply.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-remote-plan-no-lock.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-backends-remote-validate.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitconfig.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlfs.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-dockers.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-gitconfig.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-tf-backends-local.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab-tf-backends-remote.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-gitlab.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-dockers-build-push.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-dockers-build.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-exports.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-gitlab-merge-request.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-merge-upstream.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-update.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-hotfix-finish.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-finish.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-publish.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-publish-prep.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-start.sh
-RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/gitlab-terraform.sh
+RUN chmod +x /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/*.sh
 
 WORKDIR /
 ENTRYPOINT []

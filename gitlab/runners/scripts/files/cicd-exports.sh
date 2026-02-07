@@ -20,7 +20,7 @@
 export DOCKERS_LOCAL_ROOT="${CI_PROJECT_DIR}/dockers"
 export TF_BACKENDS_LOCAL_ROOT="${CI_PROJECT_DIR}/terraform/backends/local"
 export TF_BACKENDS_REMOTE_ROOT="${CI_PROJECT_DIR}/terraform/backends/remote"
-export TF_STATE_NAME=tomshley-breakground-provisioning
+export TF_STATE_NAME="${TF_STATE_NAME:-${CI_PROJECT_NAME}}"
 export SECURE_FILES_DOWNLOAD_PATH=./
 export GITLAB_API_PROJECT_HOST="${CI_API_V4_URL}/projects/"
 export GITLAB_CI_BRANCH="${CI_COMMIT_BRANCH}"
