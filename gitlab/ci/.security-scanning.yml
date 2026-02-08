@@ -7,7 +7,6 @@ include:
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Secret-Detection.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
-  - template: Security/License-Scanning.gitlab-ci.yml
 
 variables:
   SECRET_DETECTION_ENABLED: 'true'
@@ -21,9 +20,6 @@ secret_detection:
   stage: security.pre-build
 
 dependency_scanning:
-  stage: security.pre-build
-
-license_scanning:
   stage: security.pre-build
 
 # Post-build scanning (container scanning) is opt-in.
