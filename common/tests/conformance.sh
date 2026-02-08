@@ -80,6 +80,52 @@ check_jobs() {
 echo "=== CI/CD Pipelines Conformance Test ==="
 echo ""
 
+# ── Pinned Versions Drift Check ──────────────────────────────────────────────
+PINNED_FILE="$REPO_ROOT/PINNED_PIPELINE_VERSIONS"
+if [ -f "$PINNED_FILE" ]; then
+  echo "--- pinned-versions drift check ---"
+  # Source the pinned file to get expected values
+  source "$PINNED_FILE"
+
+  # Check BASE_CONTAINERS_UPSTREAM_TAG in YAML files
+  for yaml_file in \
+    "$REPO_ROOT/.gitlab-ci.yml" \
+    "$REPO_ROOT/gitlab/ci/.docker-runtime.yml"; do
+    if [ -f "$yaml_file" ]; then
+      yaml_line=$(grep 'BASE_CONTAINERS_UPSTREAM_TAG' "$yaml_file" | grep -v '\${' | head -1 || true)
+      yaml_val=$(echo "$yaml_line" | awk -F: '{print $NF}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+      if [ -n "$yaml_line" ] && [ -z "$yaml_val" ]; then
+        log_warn "BASE_CONTAINERS_UPSTREAM_TAG in $(basename "$yaml_file") has non-semver value; skipping drift check"
+      elif [ -n "$yaml_val" ] && [ "$yaml_val" != "$BASE_CONTAINERS_UPSTREAM_TAG" ]; then
+        log_error "BASE_CONTAINERS_UPSTREAM_TAG in $(basename "$yaml_file") is '$yaml_val' but PINNED_PIPELINE_VERSIONS says '$BASE_CONTAINERS_UPSTREAM_TAG'"
+      elif [ -n "$yaml_val" ]; then
+        log_ok "BASE_CONTAINERS_UPSTREAM_TAG in $(basename "$yaml_file") matches pinned ($yaml_val)"
+      fi
+    fi
+  done
+
+  # Check CICD_PIPELINES_RUNNER_TAG in consumer templates
+  for yaml_file in \
+    "$REPO_ROOT/gitlab/ci/.sbt-runtime.yml" \
+    "$REPO_ROOT/gitlab/ci/.terraform-runtime.yml"; do
+    if [ -f "$yaml_file" ]; then
+      yaml_line=$(grep 'CICD_PIPELINES_RUNNER_TAG' "$yaml_file" | grep -v '\${' | head -1 || true)
+      yaml_val=$(echo "$yaml_line" | awk -F: '{print $NF}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+      if [ -n "$yaml_line" ] && [ -z "$yaml_val" ]; then
+        log_warn "CICD_PIPELINES_RUNNER_TAG in $(basename "$yaml_file") has non-semver value; skipping drift check"
+      elif [ -n "$yaml_val" ] && [ "$yaml_val" != "$CICD_PIPELINES_RUNNER_TAG" ]; then
+        log_error "CICD_PIPELINES_RUNNER_TAG in $(basename "$yaml_file") is '$yaml_val' but PINNED_PIPELINE_VERSIONS says '$CICD_PIPELINES_RUNNER_TAG'"
+      elif [ -n "$yaml_val" ]; then
+        log_ok "CICD_PIPELINES_RUNNER_TAG in $(basename "$yaml_file") matches pinned ($yaml_val)"
+      fi
+    fi
+  done
+  echo ""
+else
+  log_warn "PINNED_PIPELINE_VERSIONS not found — skipping drift check"
+  echo ""
+fi
+
 for platform in gitlab bitbucket github jenkins; do
   status=$(get_platform_status "$platform")
 

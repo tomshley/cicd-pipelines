@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2024–2026 Tomshley LLC
+#
+# Pinned upstream dependency versions.
+# Source this file in CI scripts, Makefiles, and local dev to get
+# consistent version pins across GitLab, Bitbucket, and local builds.
+#
+# Usage:
+#   source PINNED_PIPELINE_VERSIONS
+#   make build BASE_CONTAINERS_UPSTREAM_TAG=$BASE_CONTAINERS_UPSTREAM_TAG
+
+# Base-containers upstream image tag (the FROM images cicd-pipelines builds on)
+BASE_CONTAINERS_UPSTREAM_TAG=0.3.4
+
+# Runner image tag for consumers (follows BASE_CONTAINERS_UPSTREAM_TAG)
+CICD_PIPELINES_RUNNER_TAG=0.3.0

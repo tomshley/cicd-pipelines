@@ -12,9 +12,9 @@
 
 # Secrets
 *.env
-.secure_files/*
-!.secure_files/
-!.secure_files/*.example
+.secure-files/*
+!.secure-files/
+!.secure-files/*.example
 cache.config
 credentials.config
 endpoint.config
