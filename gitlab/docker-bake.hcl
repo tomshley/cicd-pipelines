@@ -22,7 +22,7 @@ variable "REGISTRY" {
 variable "BASE_CONTAINERS_REGISTRY" {
   default = "registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers"
 }
-variable "BASE_CONTAINERS_TAG" {
+variable "BASE_CONTAINERS_UPSTREAM_TAG" {
   default = "latest"
 }
 
@@ -42,7 +42,7 @@ target "runner-base" {
   context    = "runners/base"
   dockerfile = "Dockerfile"
   contexts = {
-    os_docker_build_ref = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_TAG}"
+    os_docker_build_ref = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
   }
   tags = [
     "${REGISTRY}/cicd-gitlab-runner-base:${TAG}",
@@ -70,7 +70,7 @@ target "runner-sbtdockertofu" {
   contexts = {
     tools_base_docker_build_ref                  = "target:runner-base"
     tools_provisioning_cicd_gitlab_scripts       = "target:runner-scripts"
-    lang_java_jdk_docker_build_ref               = "docker-image://${BASE_CONTAINERS_REGISTRY}/foundation-runtime-java-21-jdk-openjdk-upstream:${BASE_CONTAINERS_TAG}"
+    lang_java_jdk_docker_build_ref               = "docker-image://${BASE_CONTAINERS_REGISTRY}/foundation-runtime-java-21-jdk-openjdk-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
   }
   tags = [
     "${REGISTRY}/cicd-gitlab-runner-sbtdockertofu:${TAG}",

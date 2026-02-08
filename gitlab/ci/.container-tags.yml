@@ -7,6 +7,10 @@
     - |
       set -e
 
+      # ── Upstream base-containers tag (cross-repo dependency) ──────
+      # Override via CI variable to pin a specific base-containers release.
+      export BASE_CONTAINERS_UPSTREAM_TAG="${BASE_CONTAINERS_UPSTREAM_TAG:-latest}"
+
       if [ -n "$CI_COMMIT_TAG" ]; then
         # ------------------------------------------------------------
         # Tag (release) pipeline
@@ -24,5 +28,6 @@
       fi
 
       echo "Container tags resolved:"
-      echo "  BASE_CONTAINERS_TAG        = $BASE_CONTAINERS_TAG"
-      echo "  BASE_CONTAINERS_TAG_LATEST = $BASE_CONTAINERS_TAG_LATEST"
+      echo "  BASE_CONTAINERS_UPSTREAM_TAG = $BASE_CONTAINERS_UPSTREAM_TAG"
+      echo "  BASE_CONTAINERS_TAG          = $BASE_CONTAINERS_TAG"
+      echo "  BASE_CONTAINERS_TAG_LATEST   = $BASE_CONTAINERS_TAG_LATEST"
