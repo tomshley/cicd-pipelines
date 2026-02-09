@@ -1,0 +1,103 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+
+#region Default Flow Variables
+variables:
+  TOMSHLEY_CICD_FLOW_TYPE: "unknown"
+  TOMSHLEY_CICD_BUILD_REVISION: "$CI_COMMIT_SHORT_SHA"
+  TOMSHLEY_CICD_BUILD_VERSION: "dev"
+#endregion
+
+
+#region Flow Resolution (PIPELINE-LEVEL)
+# NOTE:
+# - Branch pipelines use CI_COMMIT_BRANCH
+# - Merge request pipelines use CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+# - Job rules MUST NOT be used for flow classification
+workflow:
+  rules:
+    # --------------------------------------------------------------------------
+    # Merge request pipelines
+    # --------------------------------------------------------------------------
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^feature\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "feature"
+        TOMSHLEY_CICD_BUILD_REVISION: "feature-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^hotfix\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "hotfix"
+        TOMSHLEY_CICD_BUILD_REVISION: "hotfix-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "release"
+        TOMSHLEY_CICD_BUILD_REVISION: "rc-$CI_COMMIT_SHORT_SHA"
+
+    # --------------------------------------------------------------------------
+    # Tag pipelines
+    # --------------------------------------------------------------------------
+    - if: '$CI_COMMIT_TAG'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "tag"
+        TOMSHLEY_CICD_BUILD_REVISION: "$CI_COMMIT_TAG"
+
+    # --------------------------------------------------------------------------
+    # Branch pipelines
+    # --------------------------------------------------------------------------
+    - if: '$CI_COMMIT_BRANCH =~ /^feature\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "feature"
+        TOMSHLEY_CICD_BUILD_REVISION: "feature-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "hotfix"
+        TOMSHLEY_CICD_BUILD_REVISION: "hotfix-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "release"
+        TOMSHLEY_CICD_BUILD_REVISION: "rc-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "develop"
+        TOMSHLEY_CICD_BUILD_REVISION: "dev-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "main"
+        TOMSHLEY_CICD_BUILD_REVISION: "prod-$CI_COMMIT_SHORT_SHA"
+
+    # --------------------------------------------------------------------------
+    # Always create pipeline (flow may remain "unknown")
+    # --------------------------------------------------------------------------
+    - when: always
+#endregion
+
+
+#region Debug / Introspection
+.tomshley-cicd-debug:
+  before_script:
+    - |
+      echo "=== CI/CD Git Flow ==="
+      echo "Pipeline Source : ${CI_PIPELINE_SOURCE}"
+      echo "Ref             : ${CI_COMMIT_REF_NAME}"
+      echo "MR Source Branch: ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-N/A}"
+      echo "Tag             : ${CI_COMMIT_TAG}"
+      echo "Flow Type       : ${TOMSHLEY_CICD_FLOW_TYPE}"
+      echo "Build Revision  : ${TOMSHLEY_CICD_BUILD_REVISION}"
+      echo "Build Version   : ${TOMSHLEY_CICD_BUILD_VERSION}"
+#endregion
+
+
+#region Bootstrap (to be extended by consumers)
+.tomshley-cicd-bootstrap:
+  before_script:
+    - !reference [.tomshley-cicd-debug, before_script]
+    - export TOMSHLEY_CICD_BUILD_VERSION="$(cat ${CI_PROJECT_DIR}/VERSION 2>/dev/null || echo 'dev')"
+    - echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"
+#endregion

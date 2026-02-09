@@ -1,0 +1,81 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Master manifest of templates and pipelines each platform must implement.
+# Conformance tests check platform dirs against this spec.
+
+templates:
+  methodology:
+    - name: stages-base
+      spec: stage-ordering.yml
+    - name: gitflow-base
+      spec: flow-types.yml
+      required_variables:
+        - TOMSHLEY_CICD_FLOW_TYPE
+        - TOMSHLEY_CICD_BUILD_REVISION
+        - TOMSHLEY_CICD_BUILD_VERSION
+      required_jobs:
+        gitlab: [.tomshley-cicd-debug, .tomshley-cicd-bootstrap]
+    - name: gitflow-branch-policy
+      spec: flow-types.yml
+    - name: gitflow-jobs
+      spec: flow-jobs.yml
+    - name: container-tags
+      spec: container-tags.yml
+      required_variables:
+        - BASE_CONTAINERS_TAG
+        - BASE_CONTAINERS_TAG_LATEST
+    - name: artifact-publish-policy
+      spec: publish-policy.yml
+    - name: security-scanning
+      spec: security-scanning.yml
+  runtimes:
+    - name: docker-runtime
+      spec: runtimes.yml
+    - name: sbt-runtime
+      spec: runtimes.yml
+    - name: terraform-runtime
+      spec: runtimes.yml
+    - name: terraform-module-publish
+      spec: runtimes.yml
+    - name: acceptance-runtime
+      spec: runtimes.yml
+      status: future
+    - name: docs-runtime
+      spec: runtimes.yml
+      status: future
+
+pipelines:
+  - name: sbt-docker
+    purpose: "SBT compile/test + Docker build/push"
+    composes: [stages-base, gitflow-base, sbt-runtime, docker-runtime, artifact-publish-policy, security-scanning]
+    status: future
+  - name: sbt
+    purpose: "SBT compile/test/publish (no Docker)"
+    composes: [stages-base, gitflow-base, sbt-runtime, artifact-publish-policy, security-scanning]
+    status: future
+  - name: schema-registry
+    purpose: "Polyglot proto compile and publish"
+    composes: [stages-base, gitflow-base, sbt-runtime, artifact-publish-policy, security-scanning]
+    status: future
+  - name: terraform
+    purpose: "OpenTofu validate/plan/apply"
+    composes: [stages-base, gitflow-base, terraform-runtime, security-scanning]
+    status: future
+  - name: terraform-module
+    purpose: "TF module publish to registry"
+    composes: [stages-base, gitflow-base, terraform-runtime, terraform-module-publish, artifact-publish-policy, security-scanning]
+    status: future
+  - name: acceptance
+    purpose: "Python/Node acceptance tests"
+    composes: [stages-base, gitflow-base, acceptance-runtime, security-scanning]
+    status: future
+  - name: docs
+    purpose: "Documentation build + git mirror"
+    composes: [stages-base, gitflow-base, docs-runtime]
+    status: future
+  - name: container
+    purpose: "Docker-only build/push (no app code)"
+    composes: [stages-base, gitflow-base, docker-runtime, container-tags, artifact-publish-policy, security-scanning]
+    status: future
