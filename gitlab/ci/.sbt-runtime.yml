@@ -2,10 +2,13 @@
 #
 # Licensed under the Apache License, Version 2.0
 
+# Pipeline-level default — consumers override with a single `variables:` block
+variables:
+  CICD_PIPELINES_RUNNER_TAG: "latest"
+
 .tomshley-sbt-runtime:
   variables:
     CICD_PIPELINES_REGISTRY: "${CI_REGISTRY}/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines"
-    CICD_PIPELINES_RUNNER_TAG: "0.3.0"
   image:
     name: "${CICD_PIPELINES_REGISTRY}/cicd-gitlab-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
   tags:
