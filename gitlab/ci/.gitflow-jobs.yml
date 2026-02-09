@@ -1,0 +1,6 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Flow lifecycle scripts were removed; this file is intentionally empty.
+# Consumers should not include this file until new implementations are added.
