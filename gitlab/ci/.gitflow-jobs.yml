@@ -2,47 +2,5 @@
 #
 # Licensed under the Apache License, Version 2.0
 
-#region Git Flow Lifecycle Jobs (hidden — consumers extend these)
-
-.flow-feature-start:
-  stage: .pre
-  rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^feature\/.+$/'
-  script:
-    - source /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-feature-gitlab-merge-request.sh
-
-.flow-release-start:
-  stage: .post
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "develop"'
-      when: manual
-      allow_failure: false
-  script:
-    - source /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-start.sh
-
-.flow-release-publish:
-  stage: deploy
-  rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
-  script:
-    - source /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-publish.sh
-
-.flow-release-finish:
-  stage: .post
-  rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
-      when: manual
-      allow_failure: false
-  script:
-    - source /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-release-finish.sh
-
-.flow-hotfix-finish:
-  stage: .post
-  rules:
-    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
-      when: manual
-      allow_failure: false
-  script:
-    - source /opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-flow-hotfix-finish.sh
-
-#endregion
+# Flow lifecycle scripts were removed; this file is intentionally empty.
+# Consumers should not include this file until new implementations are added.
