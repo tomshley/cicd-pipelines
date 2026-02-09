@@ -28,6 +28,8 @@ RUN apk update && \
     apk upgrade && \
     apk add --no-cache \
       bash \
+      ca-certificates \
+      java-cacerts \
       gawk \
       iptables \
       libseccomp \
@@ -43,7 +45,8 @@ RUN apk update && \
       python3 && \
     rm -rf /var/cache/* && \
     mkdir /var/cache/apk -p && \
-    ln -sf python3 /usr/bin/python
+    ln -sf python3 /usr/bin/python && \
+    ln -sf /etc/ssl/certs/java/cacerts ${JAVA_HOME}/lib/security/cacerts
 
 WORKDIR /
 ENTRYPOINT []
