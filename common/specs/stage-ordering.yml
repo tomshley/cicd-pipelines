@@ -1,0 +1,22 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Canonical stage names and order.
+# Every platform implementation must define these stages in this order.
+
+stages:
+  - name: ".pre"
+    purpose: "bootstrap, context, validation"
+  - name: "security.pre-build"
+    purpose: "SAST, secret detection, dependency scanning, IaC scanning, license compliance"
+  - name: "build"
+    purpose: "compile, assemble, package"
+  - name: "test"
+    purpose: "unit / integration tests"
+  - name: "security.post-build"
+    purpose: "container scanning (requires built image)"
+  - name: "deploy"
+    purpose: "publish / release / apply"
+  - name: ".post"
+    purpose: "cleanup, notifications, manual flow hooks"

@@ -1,0 +1,27 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Required runtime templates and capabilities.
+
+runtimes:
+  - name: docker-runtime
+    purpose: "Docker-in-Docker with Buildx"
+    provides: [docker, buildx, dind]
+  - name: sbt-runtime
+    purpose: "SBT/JVM build environment"
+    provides: [jdk21, sbt, python3]
+  - name: terraform-runtime
+    purpose: "OpenTofu with validate/plan/apply"
+    provides: [opentofu, python3]
+  - name: terraform-module-publish
+    purpose: "Publish TF modules to package registry"
+    extends: terraform-runtime
+  - name: acceptance-runtime
+    purpose: "Python/Node acceptance test runner"
+    provides: [python3, nodejs, pip, npm]
+    status: future
+  - name: docs-runtime
+    purpose: "Documentation build (Node + git mirror)"
+    provides: [nodejs, npm, git, ssh]
+    status: future

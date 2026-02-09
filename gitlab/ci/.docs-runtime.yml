@@ -1,0 +1,15 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Documentation build runtime (future — placeholder)
+# Supports Docusaurus builds and git mirror to Bitbucket.
+
+.tomshley-docs-runtime:
+  image: node:20-alpine
+  tags:
+    - saas-linux-medium-amd64
+  before_script:
+    - apk add --no-cache git openssh curl bash
+    - |
+      echo "=== Docs Runtime Bootstrap ==="

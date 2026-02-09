@@ -1,0 +1,30 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Git Flow type definitions.
+# Each flow type maps to a TOMSHLEY_CICD_FLOW_TYPE value
+# and a build revision pattern.
+
+flow_types:
+  - name: feature
+    branch_pattern: "feature/*"
+    revision_pattern: "feature-{SHORT_SHA}"
+  - name: hotfix
+    branch_pattern: "hotfix/*"
+    revision_pattern: "hotfix-{SHORT_SHA}"
+  - name: release
+    branch_pattern: "release/*"
+    revision_pattern: "rc-{SHORT_SHA}"
+  - name: develop
+    branch_pattern: "develop"
+    revision_pattern: "dev-{SHORT_SHA}"
+  - name: main
+    branch_pattern: "main|master"
+    revision_pattern: "prod-{SHORT_SHA}"
+  - name: tag
+    trigger: "CI_COMMIT_TAG is set"
+    revision_pattern: "{CI_COMMIT_TAG}"
+  - name: unknown
+    trigger: "fallback"
+    revision_pattern: "{SHORT_SHA}"

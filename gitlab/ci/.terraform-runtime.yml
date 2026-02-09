@@ -1,0 +1,40 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+.tomshley-terraform-runtime:
+  variables:
+    CICD_PIPELINES_REGISTRY: "${CI_REGISTRY}/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines"
+    CICD_PIPELINES_RUNNER_TAG: "0.3.0"
+    TF_ROOT: "${CI_PROJECT_DIR}"
+  image:
+    name: "${CICD_PIPELINES_REGISTRY}/cicd-gitlab-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
+  tags:
+    - saas-linux-medium-amd64
+  before_script:
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
+    - |
+      CICD_EXPORTS="/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh"
+      if [ -f "$CICD_EXPORTS" ]; then source "$CICD_EXPORTS"; fi
+    - cd "${TF_ROOT}"
+
+.tomshley-terraform-validate:
+  extends: .tomshley-terraform-runtime
+  stage: build
+  script:
+    - cd "${TF_ROOT}" && tofu init -backend=false && tofu validate
+
+.tomshley-terraform-plan:
+  extends: .tomshley-terraform-runtime
+  stage: build
+  script:
+    - cd "${TF_ROOT}" && tofu init && tofu plan -input=false -out=plan.cache
+  artifacts:
+    paths: ["${TF_ROOT}/plan.cache"]
+    expire_in: 8 hours
+
+.tomshley-terraform-apply:
+  extends: .tomshley-terraform-runtime
+  stage: deploy
+  script:
+    - cd "${TF_ROOT}" && tofu init && tofu apply -input=false plan.cache
