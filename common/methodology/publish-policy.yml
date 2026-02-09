@@ -1,8 +1,0 @@
-publish_policy:
-  mr_pipelines: never
-  develop: on_success
-  feature: manual
-  hotfix: manual
-  release: manual
-  tag: manual
-  default: never

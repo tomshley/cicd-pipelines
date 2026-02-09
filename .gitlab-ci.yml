@@ -1,0 +1,117 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+#
+# Internal CI for cicd-pipelines.
+# Runs conformance tests on every push, builds runner images on develop/release/tag.
+
+include:
+  - local: gitlab/ci/.stages-base.yml
+  - local: gitlab/ci/.gitflow-base.yml
+  - local: gitlab/ci/.gitflow-branch-policy.yml
+  - local: gitlab/ci/.container-tags.yml
+  - local: gitlab/ci/.artifact-publish-policy.yml
+  - local: gitlab/ci/.security-scanning.yml
+  - local: gitlab/ci/.docker-runtime.yml
+
+variables:
+  BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
+  BASE_CONTAINERS_UPSTREAM_TAG: 0.3.4
+
+# ── Conformance ──────────────────────────────────────────────────────────────
+
+conformance:
+  stage: .pre
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
+  before_script:
+    - apk add --no-cache bash grep gawk
+  script:
+    - bash common/tests/conformance.sh
+    - bash common/tests/validate-gitlab.sh
+    - bash common/tests/validate-bitbucket.sh
+  rules:
+    - when: always
+
+#region Container Runtime (cicd-pipelines specific)
+# ── Internal runtime for building runner images via Make ────────────────────
+# Mirrors the base-containers pattern: all setup in before_script,
+# jobs are simple make calls. Consumer template .tomshley-docker-runtime
+# (from .docker-runtime.yml) is separate and unchanged.
+
+.tomshley-cicd-pipelines-runtime:
+  extends:
+    - .before-container-tags
+
+  image: ${BASE_CONTAINERS_REGISTRY}/entry-docker-cli-buildx-29-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}
+  services:
+    - name: ${BASE_CONTAINERS_REGISTRY}/daemon-docker-29-dind-rootless-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}
+      alias: docker
+
+  tags:
+    - saas-linux-xlarge-amd64
+
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_CLI_EXPERIMENTAL: enabled
+
+  before_script:
+    - !reference [.before-container-tags, before_script]
+
+    # Tooling
+    - apk add --no-cache make
+
+    # Pinned versions (exported to make/bake)
+    - set -a
+    - source "${CI_PROJECT_DIR}/PINNED_PIPELINE_VERSIONS"
+    - set +a
+
+    # Tag computation
+    - |
+      export TAG="${TOMSHLEY_CICD_BUILD_REVISION:-${CI_COMMIT_SHORT_SHA}}"
+      export TAG_LATEST="${CI_COMMIT_REF_SLUG}-latest"
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        export TAG="${CI_COMMIT_TAG#v}"
+        export TAG_LATEST="latest"
+      fi
+
+    # Docker login (CI credentials are authoritative)
+    - |
+      if [ -n "$CI_REGISTRY_USER" ] && [ -n "$CI_REGISTRY_PASSWORD" ]; then
+        docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+      fi
+
+    # Buildx setup (idempotent)
+    - make -C gitlab createbuildx
+#endregion
+
+# ── Build Runner Images ──────────────────────────────────────────────────────
+
+build-runner-images:
+  extends:
+    - .tomshley-cicd-pipelines-runtime
+  stage: build
+  script:
+    - make -C gitlab build
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+    - if: '$CI_COMMIT_TAG'
+    - if: '$CI_COMMIT_BRANCH =~ /^feature\/.+$/'
+      when: manual
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      when: manual
+
+# ── Publish Runner Images ────────────────────────────────────────────────────
+
+publish-runner-images:
+  extends:
+    - .tomshley-cicd-pipelines-runtime
+    - .flow-artifact-publish
+  stage: deploy
+  script:
+    - make -C gitlab push
+
