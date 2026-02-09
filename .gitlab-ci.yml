@@ -9,7 +9,6 @@ include:
   - local: gitlab/ci/.stages-base.yml
   - local: gitlab/ci/.gitflow-base.yml
   - local: gitlab/ci/.gitflow-branch-policy.yml
-  - local: gitlab/ci/.gitflow-jobs.yml
   - local: gitlab/ci/.container-tags.yml
   - local: gitlab/ci/.artifact-publish-policy.yml
   - local: gitlab/ci/.security-scanning.yml
