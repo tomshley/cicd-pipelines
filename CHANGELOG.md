@@ -6,6 +6,16 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.2.0
+
+### Added
+- `.sbt-artifact-tags.yml` GitLab CI template: dual-publish strategy with pinnable (`1.4.1-develop-abc1234`) and rolling (`1.4.1-develop`) SBT artifact tags for branch/MR pipelines.
+
+### Changed
+- Develop branch revision prefix renamed from `dev-{SHORT_SHA}` to `develop-{SHORT_SHA}` in `flow-types.yml` spec and `.gitflow-base.yml` implementation for consistency with other flow type prefixes.
+
+---
+
 ## v0.1.1
 
 ### Fixed
