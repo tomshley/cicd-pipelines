@@ -1,0 +1,22 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Pipeline-level default — consumers override with a single `variables:` block
+variables:
+  CICD_PIPELINES_RUNNER_TAG: "latest"
+
+.tomshley-sbt-rust-runtime:
+  variables:
+    CICD_PIPELINES_REGISTRY: "${CI_REGISTRY}/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines"
+  image:
+    name: "${CICD_PIPELINES_REGISTRY}/cicd-gitlab-runner-sbtrustdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
+  tags:
+    - saas-linux-medium-amd64
+  before_script:
+    - |
+      echo "=== SBT + Rust Runtime Bootstrap ==="
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
+    - |
+      CICD_EXPORTS="/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh"
+      if [ -f "$CICD_EXPORTS" ]; then source "$CICD_EXPORTS"; fi
