@@ -18,7 +18,7 @@ flow_types:
     revision_pattern: "rc-{SHORT_SHA}"
   - name: develop
     branch_pattern: "develop"
-    revision_pattern: "dev-{SHORT_SHA}"
+    revision_pattern: "develop-{SHORT_SHA}"
   - name: main
     branch_pattern: "main|master"
     revision_pattern: "prod-{SHORT_SHA}"

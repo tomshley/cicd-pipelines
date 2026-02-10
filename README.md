@@ -33,7 +33,7 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.0.1'
+        ref: 'v0.2.0'
         file:
           - gitlab/ci/.stages-base.yml
           - gitlab/ci/.gitflow-base.yml
@@ -77,8 +77,8 @@ In your project's `.gitlab-ci.yml`:
 
 ## Versioning
 
-- Version in `VERSION` file (currently `0.0.1`)
-- Consumer projects pin to `ref: 'v0.0.1'` in their includes
+- Version in `VERSION` file (currently `0.2.0`)
+- Consumer projects pin to `ref: 'v0.2.0'` in their includes
 - Runner images tagged with `TOMSHLEY_CICD_BUILD_REVISION`
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.
