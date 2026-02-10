@@ -6,6 +6,18 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.3.0
+
+### Added
+- `sbt-artifact-tags` and `sbt-docker-publish` registered in `required-implementations.yml`.
+- Conformance test coverage for `sbt-artifact-tags` and `sbt-docker-publish` template existence.
+- Pinned-version drift check for `BASE_CONTAINERS_UPSTREAM_TAG` in `.sbt-docker-publish.yml`.
+
+### Changed
+- `BASE_CONTAINERS_UPSTREAM_TAG` in `.sbt-docker-publish.yml` bumped from `0.3.4` to `0.4.1`.
+
+---
+
 ## v0.2.0
 
 ### Added
