@@ -90,7 +90,8 @@ if [ -f "$PINNED_FILE" ]; then
   # Check BASE_CONTAINERS_UPSTREAM_TAG in YAML files
   for yaml_file in \
     "$REPO_ROOT/.gitlab-ci.yml" \
-    "$REPO_ROOT/gitlab/ci/.docker-runtime.yml"; do
+    "$REPO_ROOT/gitlab/ci/.docker-runtime.yml" \
+    "$REPO_ROOT/gitlab/ci/.sbt-docker-publish.yml"; do
     if [ -f "$yaml_file" ]; then
       yaml_line=$(grep 'BASE_CONTAINERS_UPSTREAM_TAG' "$yaml_file" | grep -v '\${' | head -1 || true)
       yaml_val=$(echo "$yaml_line" | awk -F: '{print $NF}' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
@@ -143,7 +144,7 @@ for platform in gitlab bitbucket github jenkins; do
   done
 
   # Runtime templates
-  for tmpl in docker-runtime sbt-runtime sbt-rust-runtime terraform-runtime terraform-module-publish; do
+  for tmpl in docker-runtime sbt-runtime sbt-artifact-tags sbt-docker-publish sbt-rust-runtime terraform-runtime terraform-module-publish; do
     check_template "$platform" "$tmpl" "$status" || true
   done
 
