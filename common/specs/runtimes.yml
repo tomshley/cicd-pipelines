@@ -17,6 +17,9 @@ runtimes:
   - name: terraform-module-publish
     purpose: "Publish TF modules to package registry"
     extends: terraform-runtime
+  - name: sbt-rust-runtime
+    purpose: "SBT/JVM + Rust/Cargo build environment"
+    provides: [jdk21, sbt, rust, cargo, docker, buildx, opentofu, python3]
   - name: acceptance-runtime
     purpose: "Python/Node acceptance test runner"
     provides: [python3, nodejs, pip, npm]
