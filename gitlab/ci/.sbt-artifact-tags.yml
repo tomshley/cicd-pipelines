@@ -1,0 +1,43 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+.before-sbt-artifact-tags:
+  before_script:
+    - |
+      set -e
+
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        # ------------------------------------------------------------
+        # Tag (release) pipeline — clean version, single publish
+        # ------------------------------------------------------------
+        export SBT_PUBLISH_PINNABLE="true"
+        export SBT_PUBLISH_ROLLING="false"
+      else
+        # ------------------------------------------------------------
+        # Branch / MR pipeline — two publishes
+        # ------------------------------------------------------------
+        export SBT_PUBLISH_PINNABLE="true"
+        export SBT_PUBLISH_ROLLING="true"
+        export TOMSHLEY_CICD_BUILD_REVISION_ROLLING="${TOMSHLEY_CICD_FLOW_TYPE}"
+      fi
+
+      echo "SBT artifact tags resolved:"
+      echo "  TOMSHLEY_CICD_BUILD_REVISION         = $TOMSHLEY_CICD_BUILD_REVISION"
+      echo "  TOMSHLEY_CICD_BUILD_REVISION_ROLLING = ${TOMSHLEY_CICD_BUILD_REVISION_ROLLING:-N/A}"
+      echo "  SBT_PUBLISH_PINNABLE                 = $SBT_PUBLISH_PINNABLE"
+      echo "  SBT_PUBLISH_ROLLING                  = $SBT_PUBLISH_ROLLING"
+
+.sbt-publish:
+  extends:
+    - .tomshley-cicd-bootstrap
+    - .before-sbt-artifact-tags
+  script:
+    # Pinnable publish: e.g. 1.4.1-develop-abc1234
+    - sbt publish
+    - |
+      if [ "$SBT_PUBLISH_ROLLING" = "true" ]; then
+        # Rolling publish: e.g. 1.4.1-develop
+        export TOMSHLEY_CICD_BUILD_REVISION="$TOMSHLEY_CICD_BUILD_REVISION_ROLLING"
+        sbt publish
+      fi
