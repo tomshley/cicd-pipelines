@@ -6,6 +6,13 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.1.1
+
+### Fixed
+- `sbtrustdockertofu` runner: added `build-base` Alpine package to provide `cc` linker required by Rust `cc` crate during `cargo build`.
+
+---
+
 ## v0.1.0
 
 ### Added
