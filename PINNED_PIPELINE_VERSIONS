@@ -10,7 +10,7 @@
 #   make build BASE_CONTAINERS_UPSTREAM_TAG=$BASE_CONTAINERS_UPSTREAM_TAG
 
 # Base-containers upstream image tag (the FROM images cicd-pipelines builds on)
-BASE_CONTAINERS_UPSTREAM_TAG=0.3.4
+BASE_CONTAINERS_UPSTREAM_TAG=0.4.1
 
 # Runner image tag for consumers (follows BASE_CONTAINERS_UPSTREAM_TAG)
 CICD_PIPELINES_RUNNER_TAG=0.3.0
