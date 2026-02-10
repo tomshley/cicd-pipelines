@@ -44,6 +44,7 @@ RUN apk update && \
       curl \
       openssh \
       gcompat \
+      build-base \
       musl-dev \
       git-flow \
       git-lfs \
