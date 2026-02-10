@@ -31,7 +31,7 @@ variable "BASE_CONTAINERS_UPSTREAM_TAG" {
 # ---------------------------------------------------------------------------
 
 group "default" {
-  targets = ["runner-sbtdockertofu"]
+  targets = ["runner-sbtdockertofu", "runner-sbtrustdockertofu"]
 }
 
 # ---------------------------------------------------------------------------
@@ -51,6 +51,24 @@ target "runner-sbtdockertofu" {
   tags = [
     "${REGISTRY}/cicd-gitlab-runner-sbtdockertofu:${TAG}",
     "${REGISTRY}/cicd-gitlab-runner-sbtdockertofu:${TAG_LATEST}"
+  ]
+  platforms = ["linux/amd64"]
+}
+
+target "runner-sbtrustdockertofu" {
+  context    = "runners/sbtrustdockertofu"
+  dockerfile = "Dockerfile"
+  contexts = {
+    os_docker_build_ref                          = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    lang_java_jdk_docker_build_ref               = "docker-image://${BASE_CONTAINERS_REGISTRY}/foundation-runtime-java-21-jdk-openjdk-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_docker_cli_buildx_docker_build_ref     = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-docker-cli-buildx-29-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_sbt_docker_build_ref                   = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-sbt-1_12-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_opentofu_docker_build_ref              = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-opentofu-1_11-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_rust_docker_build_ref                  = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-rust-1_83-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+  }
+  tags = [
+    "${REGISTRY}/cicd-gitlab-runner-sbtrustdockertofu:${TAG}",
+    "${REGISTRY}/cicd-gitlab-runner-sbtrustdockertofu:${TAG_LATEST}"
   ]
   platforms = ["linux/amd64"]
 }

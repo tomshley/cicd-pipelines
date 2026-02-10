@@ -107,6 +107,7 @@ if [ -f "$PINNED_FILE" ]; then
   # Check CICD_PIPELINES_RUNNER_TAG in consumer templates
   for yaml_file in \
     "$REPO_ROOT/gitlab/ci/.sbt-runtime.yml" \
+    "$REPO_ROOT/gitlab/ci/.sbt-rust-runtime.yml" \
     "$REPO_ROOT/gitlab/ci/.terraform-runtime.yml"; do
     if [ -f "$yaml_file" ]; then
       yaml_line=$(grep 'CICD_PIPELINES_RUNNER_TAG' "$yaml_file" | grep -v '\${' | head -1 || true)
@@ -142,7 +143,7 @@ for platform in gitlab bitbucket github jenkins; do
   done
 
   # Runtime templates
-  for tmpl in docker-runtime sbt-runtime terraform-runtime terraform-module-publish; do
+  for tmpl in docker-runtime sbt-runtime sbt-rust-runtime terraform-runtime terraform-module-publish; do
     check_template "$platform" "$tmpl" "$status" || true
   done
 
