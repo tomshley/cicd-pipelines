@@ -39,6 +39,8 @@ templates:
       spec: runtimes.yml
     - name: terraform-module-publish
       spec: runtimes.yml
+    - name: sbt-rust-runtime
+      spec: runtimes.yml
     - name: acceptance-runtime
       spec: runtimes.yml
       status: future
