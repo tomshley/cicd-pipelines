@@ -2,5 +2,169 @@
 #
 # Licensed under the Apache License, Version 2.0
 
-# Flow lifecycle scripts were removed; this file is intentionally empty.
-# Consumers should not include this file until new implementations are added.
+# ---------------------------------------------------------------------------
+# Git Flow lifecycle jobs.
+# Consumers include this file to get automated release/hotfix flow management.
+#
+# Required CI/CD variables (set in project or group settings):
+#   TOMSHLEY_CICD_GIT_PUSH_TOKEN  — Access token with write_repository scope
+#   TOMSHLEY_CICD_GIT_PUSH_USER   — Username for git push
+#
+# Fallback chain:
+#   Token: TOMSHLEY_CICD_GIT_PUSH_TOKEN → GL_PASSWORD → CI_JOB_TOKEN
+#   User:  TOMSHLEY_CICD_GIT_PUSH_USER  → GITLAB_USER_LOGIN → gitlab-ci-token
+#
+# If using CI_JOB_TOKEN (the default fallback), enable
+# "CI/CD job token can push to this project" in
+# Settings > CI/CD > Token Access.
+# ---------------------------------------------------------------------------
+
+
+#region Git Push Configuration
+.tomshley-cicd-git-push-config:
+  image: alpine:3.19
+  tags:
+    - saas-linux-small-amd64
+  before_script:
+    - apk add --no-cache git
+    - |
+      git config --global user.email "${GITLAB_USER_EMAIL}"
+      git config --global user.name "${GITLAB_USER_NAME}"
+      GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
+      GIT_PUSH_TOKEN="${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-${GL_PASSWORD:-$CI_JOB_TOKEN}}"
+      CI_URL_NO_SCHEME=$(echo "${CI_PROJECT_URL}" | sed 's|https\?://||')
+      git remote set-url origin "https://${GIT_PUSH_USER}:${GIT_PUSH_TOKEN}@${CI_URL_NO_SCHEME}.git"
+#endregion
+
+
+#region Flow: release-start (develop → release/*)
+tomshley-cicd-flow-release-start:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+
+      NEXT_VERSION="v$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+
+      echo "Current version: ${CURRENT_VERSION}"
+      echo "Next version:    ${NEXT_VERSION}"
+
+      git fetch
+      git checkout -b "release/${NEXT_VERSION}"
+
+      echo "${NEXT_VERSION}" > "$VERSION_FILE"
+      git add "$VERSION_FILE"
+      git commit -m "$(git log --format='%B' -n 1) | bumping version to ${NEXT_VERSION}"
+      git push --set-upstream origin "release/${NEXT_VERSION}"
+#endregion
+
+
+#region Flow: release-finish (release/* → main + develop, tag, cleanup)
+tomshley-cicd-flow-release-finish:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+      RELEASE_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      RELEASE_BRANCH="${CI_COMMIT_BRANCH}"
+      FINISH_MESSAGE="Tomshley Release Version ${RELEASE_VERSION}"
+
+      echo "Finishing release: ${RELEASE_BRANCH}"
+      echo "Release version:  ${RELEASE_VERSION}"
+
+      git fetch
+      git checkout "${RELEASE_BRANCH}"
+      git pull origin "${RELEASE_BRANCH}" --rebase --prune
+
+      export GIT_MERGE_AUTOEDIT=no
+      git checkout main
+      git pull origin main --rebase --prune
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
+      git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
+      git checkout develop
+      git pull origin develop --rebase --prune
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
+      git branch -d "${RELEASE_BRANCH}"
+      git push origin main
+      git push origin develop
+      git push origin --tags
+      git push origin :"${RELEASE_BRANCH}"
+      unset GIT_MERGE_AUTOEDIT
+#endregion
+
+
+#region Flow: hotfix-finish (hotfix/* → main + develop, tag, cleanup)
+tomshley-cicd-flow-hotfix-finish:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+      NEXT_VERSION="v$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+      HOTFIX_BRANCH="${CI_COMMIT_BRANCH}"
+      FINISH_MESSAGE="Tomshley Hotfix Version ${NEXT_VERSION}"
+
+      echo "Finishing hotfix: ${HOTFIX_BRANCH}"
+      echo "Next version:    ${NEXT_VERSION}"
+
+      # Step 1: Bump version on hotfix branch
+      git fetch
+      git checkout "${HOTFIX_BRANCH}"
+      git pull origin "${HOTFIX_BRANCH}" --rebase --prune
+      echo "${NEXT_VERSION}" > "$VERSION_FILE"
+      git add "$VERSION_FILE"
+      git commit -m "$(git log --format='%B' -n 1) | bumping version to ${NEXT_VERSION}"
+      git push --set-upstream origin "${HOTFIX_BRANCH}"
+
+      # Step 2: Merge to main and develop, tag, cleanup
+      export GIT_MERGE_AUTOEDIT=no
+      git checkout main
+      git pull origin main --rebase --prune
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
+      git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
+      git checkout develop
+      git pull origin develop --rebase --prune
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
+      git branch -d "${HOTFIX_BRANCH}"
+      git push origin main
+      git push origin develop
+      git push origin --tags
+      git push origin :"${HOTFIX_BRANCH}"
+      unset GIT_MERGE_AUTOEDIT
+#endregion
