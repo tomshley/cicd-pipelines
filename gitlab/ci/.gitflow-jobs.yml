@@ -179,14 +179,20 @@ tomshley-cicd-flow-release-finish:
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --ff-only --prune
-      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main | [skip ci]"
       git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${RELEASE_BRANCH}"
+      PUSH_REFS="main develop refs/tags/${RELEASE_VERSION}"
+      if git ls-remote --exit-code origin "refs/heads/${RELEASE_BRANCH}" >/dev/null 2>&1; then
+        PUSH_REFS="${PUSH_REFS} :${RELEASE_BRANCH}"
+      else
+        echo "WARN: Remote branch ${RELEASE_BRANCH} already deleted — skipping deletion refspec"
+      fi
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
-      git push --atomic origin main develop "refs/tags/${RELEASE_VERSION}" :"${RELEASE_BRANCH}"
+      git push --atomic origin ${PUSH_REFS}
       unset GIT_MERGE_AUTOEDIT
 #endregion
 
@@ -254,13 +260,19 @@ tomshley-cicd-flow-hotfix-finish:
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --ff-only --prune
-      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main | [skip ci]"
       git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${HOTFIX_BRANCH}"
+      PUSH_REFS="main develop refs/tags/${NEXT_VERSION}"
+      if git ls-remote --exit-code origin "refs/heads/${HOTFIX_BRANCH}" >/dev/null 2>&1; then
+        PUSH_REFS="${PUSH_REFS} :${HOTFIX_BRANCH}"
+      else
+        echo "WARN: Remote branch ${HOTFIX_BRANCH} already deleted — skipping deletion refspec"
+      fi
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
-      git push --atomic origin main develop "refs/tags/${NEXT_VERSION}" :"${HOTFIX_BRANCH}"
+      git push --atomic origin ${PUSH_REFS}
       unset GIT_MERGE_AUTOEDIT
 #endregion
