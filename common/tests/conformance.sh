@@ -157,6 +157,7 @@ for platform in gitlab bitbucket github jenkins; do
       "tomshley-cicd-flow-release-start" \
       "tomshley-cicd-flow-release-publish" \
       "tomshley-cicd-flow-release-finish" \
+      "tomshley-cicd-flow-hotfix-publish" \
       "tomshley-cicd-flow-hotfix-finish"
   fi
 
