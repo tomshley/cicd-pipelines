@@ -21,6 +21,11 @@
 # Security: If using TOMSHLEY_CICD_GIT_PUSH_TOKEN or GL_PASSWORD, mark the
 # variable as "Masked" in CI/CD settings to prevent credential exposure in
 # git error output. CI_JOB_TOKEN is masked by GitLab automatically.
+#
+# Note: flow-feature-start (auto-create MR) is NOT implemented here.
+# MR/PR creation APIs are fundamentally platform-specific (GitLab MR vs
+# GitHub PR vs Bitbucket PR vs Jenkins — no shared contract). Each platform
+# must provide its own implementation if desired.
 # ---------------------------------------------------------------------------
 
 
@@ -78,6 +83,34 @@ tomshley-cicd-flow-release-start:
       git add "$VERSION_FILE"
       git commit -m "$(git log --format='%s' -n 1) | bumping version to ${NEXT_VERSION}"
       git push --set-upstream origin "release/${NEXT_VERSION}"
+#endregion
+
+
+#region Flow: release-publish (sync release branch to remote)
+tomshley-cicd-flow-release-publish:
+  stage: deploy
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: on_success
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      RELEASE_BRANCH="${CI_COMMIT_BRANCH}"
+
+      echo "Publishing release branch: ${RELEASE_BRANCH}"
+
+      git fetch
+      git checkout "${RELEASE_BRANCH}"
+      git branch --set-upstream-to "origin/${RELEASE_BRANCH}"
+      git pull origin "${RELEASE_BRANCH}" --rebase --prune
+      git push -u origin HEAD:"${RELEASE_BRANCH}"
 #endregion
 
 
