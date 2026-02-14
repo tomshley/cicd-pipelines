@@ -6,6 +6,24 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.4.1
+
+### Added
+- `tomshley-cicd-flow-hotfix-publish`: no-op extension point on `hotfix/*` branches, mirroring `release-publish`. Consumers override to add hotfix artifact publishing.
+- `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` variable: configurable prefix for merge/tag commit messages (default: `"Tomshley CI Pipeline"`). Set in CI/CD variables to override.
+- `flow-hotfix-publish` added to `common/specs/flow-jobs.yml` and conformance test coverage.
+
+### Changed
+- `build-runner-images`: `release/*` and `hotfix/*` branches changed from auto to `when: manual` — skip builds when only templates changed.
+- `publish-runner-images` retained with `.flow-artifact-publish` for develop (auto), tag (manual), and manual on feature/hotfix/release. Gitflow publish extension points remain no-ops.
+- `.flow-artifact-publish`: added `allow_failure: true` to all manual rules (feature, hotfix, release, tag) so manual publish jobs don't block downstream stages.
+- `build-runner-images`: added `allow_failure: true` to manual rules (feature, release, hotfix) so optional builds don't block deploy or `.post` stages.
+- `tomshley-cicd-flow-release-publish` and `tomshley-cicd-flow-hotfix-publish`: changed from `when: on_success` to `when: manual` + `allow_failure: true` — extension points are now opt-in triggers, preventing unintended auto-publish when consumers override with real logic.
+- README.md: added Git Flow Lifecycle Jobs section, documented variables, override pattern, updated consumer usage example to v0.4.0, fixed file path prefixes.
+- ROADMAP.md: updated to reflect actual shipped milestones (v0.0.1–v0.4.0).
+
+---
+
 ## v0.4.0
 
 ### Added
