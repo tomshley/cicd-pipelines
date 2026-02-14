@@ -152,6 +152,7 @@ for platform in gitlab bitbucket github jenkins; do
   flowjobs_file="$REPO_ROOT/${platform}/ci/.gitflow-jobs.yml"
   if [ -f "$flowjobs_file" ]; then
     check_jobs "$flowjobs_file" "$status" \
+      ".tomshley-cicd-git-push-config" \
       "tomshley-cicd-flow-release-start" \
       "tomshley-cicd-flow-release-publish" \
       "tomshley-cicd-flow-release-finish" \
