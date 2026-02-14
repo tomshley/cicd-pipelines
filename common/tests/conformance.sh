@@ -65,7 +65,8 @@ check_jobs() {
   local file="$1" status="$2"
   shift 2
   for job in "$@"; do
-    if grep -q "^${job}:" "$file" 2>/dev/null; then
+    escaped_job=$(printf '%s' "$job" | sed 's/[.[\*^$()+?{|]/\\&/g')
+    if grep -q "^${escaped_job}:" "$file" 2>/dev/null; then
       log_ok "  $job defined in $(basename "$file")"
     else
       if [ "$status" = "active" ]; then
@@ -147,6 +148,17 @@ for platform in gitlab bitbucket github jenkins; do
   for tmpl in docker-runtime sbt-runtime sbt-artifact-tags sbt-docker-publish sbt-rust-runtime terraform-runtime terraform-module-publish; do
     check_template "$platform" "$tmpl" "$status" || true
   done
+
+  # Check required flow jobs in gitflow-jobs
+  flowjobs_file="$REPO_ROOT/${platform}/ci/.gitflow-jobs.yml"
+  if [ -f "$flowjobs_file" ]; then
+    check_jobs "$flowjobs_file" "$status" \
+      ".tomshley-cicd-git-push-config" \
+      "tomshley-cicd-flow-release-start" \
+      "tomshley-cicd-flow-release-publish" \
+      "tomshley-cicd-flow-release-finish" \
+      "tomshley-cicd-flow-hotfix-finish"
+  fi
 
   # Check required variables in gitflow-base
   gitflow_file="$REPO_ROOT/${platform}/ci/.gitflow-base.yml"
