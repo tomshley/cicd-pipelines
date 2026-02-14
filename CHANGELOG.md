@@ -6,6 +6,24 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.4.0
+
+### Added
+- `.gitflow-jobs.yml` GitLab CI template: automated gitflow lifecycle jobs for release and hotfix workflows.
+  - `.tomshley-cicd-git-push-config` hidden job: Alpine-based git push configuration with token fallback chain (`TOMSHLEY_CICD_GIT_PUSH_TOKEN` → `GL_PASSWORD` → `CI_JOB_TOKEN`).
+  - `tomshley-cicd-flow-release-start`: manual job on develop — creates `release/*` branch, bumps VERSION.
+  - `tomshley-cicd-flow-release-publish`: extension point on `release/*` branches for consumer-defined publish logic.
+  - `tomshley-cicd-flow-release-finish`: manual job on `release/*` — merges to main + develop, tags, deletes release branch.
+  - `tomshley-cicd-flow-hotfix-finish`: manual job on `hotfix/*` — bumps VERSION, merges to main + develop, tags, deletes hotfix branch.
+- `.gitflow-jobs.yml` included in `cicd-pipelines` own `.gitlab-ci.yml`.
+- Conformance test coverage for flow job names and `.tomshley-cicd-git-push-config` hidden job.
+- Regex escaping in `check_jobs` conformance function for dot-prefixed hidden job names.
+
+### Security
+- Token masking guidance documented in `.gitflow-jobs.yml` header for `TOMSHLEY_CICD_GIT_PUSH_TOKEN` and `GL_PASSWORD`.
+
+---
+
 ## v0.3.0
 
 ### Added
