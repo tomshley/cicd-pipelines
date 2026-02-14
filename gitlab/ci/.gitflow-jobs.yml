@@ -68,7 +68,7 @@ tomshley-cicd-flow-release-start:
 
       VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
 
-      git fetch
+      git fetch --tags
       git checkout develop
       git pull origin develop --rebase --prune
 
@@ -89,6 +89,10 @@ tomshley-cicd-flow-release-start:
       echo "Current version: ${CURRENT_VERSION}"
       echo "Next version:    ${NEXT_VERSION}"
 
+      if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+        exit 1
+      fi
       if git branch -r | grep -q 'origin/release/'; then
         echo "ERROR: An active release branch already exists — aborting"
         exit 1
@@ -106,12 +110,11 @@ tomshley-cicd-flow-release-start:
 #endregion
 
 
-#region Flow: release-publish (sync release branch to remote)
-# This job is a hook point for the release lifecycle. In the default
-# implementation it syncs the release branch to remote after build/test.
-# It will be a no-op when no local changes exist (the common case).
-# Consumers can extend this job to add release-candidate artifact
-# publishing or other pre-finish steps.
+#region Flow: release-publish (extension point for release lifecycle)
+# This job is intentionally a no-op in the default implementation.
+# It runs on every release/* branch pipeline as a hook point where
+# consumers can add release-candidate artifact publishing or other
+# pre-finish steps by overriding the script block.
 # To override in a consumer, redefine the script in your .gitlab-ci.yml:
 #   tomshley-cicd-flow-release-publish:
 #     script:
