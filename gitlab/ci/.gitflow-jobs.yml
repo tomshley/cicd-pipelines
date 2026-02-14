@@ -45,7 +45,7 @@
       git config --global user.name "${GITLAB_USER_NAME}"
       GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
       GIT_PUSH_TOKEN="${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-${GL_PASSWORD:-$CI_JOB_TOKEN}}"
-      CI_URL_NO_SCHEME=$(echo "${CI_PROJECT_URL}" | sed 's|https\?://||')
+      CI_URL_NO_SCHEME=$(echo "${CI_PROJECT_URL}" | sed -E 's|https?://||')
       git remote set-url origin "https://${GIT_PUSH_USER}:${GIT_PUSH_TOKEN}@${CI_URL_NO_SCHEME}.git"
 #endregion
 
@@ -157,7 +157,7 @@ tomshley-cicd-flow-release-finish:
       VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
       RELEASE_BRANCH="${CI_COMMIT_BRANCH}"
 
-      git fetch
+      git fetch --tags
       git checkout "${RELEASE_BRANCH}"
       git pull origin "${RELEASE_BRANCH}" --rebase --prune
 
@@ -178,11 +178,11 @@ tomshley-cicd-flow-release-finish:
 
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
-      git pull origin main --rebase --prune
+      git pull origin main --ff-only --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
       git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
-      git pull origin develop --rebase --prune
+      git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${RELEASE_BRANCH}"
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
@@ -211,7 +211,7 @@ tomshley-cicd-flow-hotfix-finish:
       HOTFIX_BRANCH="${CI_COMMIT_BRANCH}"
 
       # Step 1: Bump version on hotfix branch
-      git fetch
+      git fetch --tags
       git checkout "${HOTFIX_BRANCH}"
       git pull origin "${HOTFIX_BRANCH}" --rebase --prune
 
@@ -219,19 +219,27 @@ tomshley-cicd-flow-hotfix-finish:
         echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
         exit 1
       fi
-      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
-      VERSION_PREFIX=""
-      case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
-      CLEAN_VERSION="${CURRENT_VERSION#v}"
-      NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+
+      # Idempotency: if last commit is already a version bump (retry scenario), reuse it
+      LAST_COMMIT_MSG=$(git log --format='%s' -n 1)
+      if echo "$LAST_COMMIT_MSG" | grep -q "^chore: bump version to "; then
+        NEXT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+        echo "Version bump already committed — using ${NEXT_VERSION}"
+      else
+        CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+        VERSION_PREFIX=""
+        case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+        CLEAN_VERSION="${CURRENT_VERSION#v}"
+        NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+
+        echo "${NEXT_VERSION}" > "$VERSION_FILE"
+        git add "$VERSION_FILE"
+        git commit -m "chore: bump version to ${NEXT_VERSION}"
+      fi
       FINISH_MESSAGE="Tomshley Hotfix Version ${NEXT_VERSION}"
 
       echo "Finishing hotfix: ${HOTFIX_BRANCH}"
       echo "Next version:    ${NEXT_VERSION}"
-
-      echo "${NEXT_VERSION}" > "$VERSION_FILE"
-      git add "$VERSION_FILE"
-      git commit -m "chore: bump version to ${NEXT_VERSION}"
 
       # Step 2: Merge to main and develop, tag, cleanup
       if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
@@ -241,11 +249,11 @@ tomshley-cicd-flow-hotfix-finish:
 
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
-      git pull origin main --rebase --prune
+      git pull origin main --ff-only --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
       git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
-      git pull origin develop --rebase --prune
+      git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${HOTFIX_BRANCH}"
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
