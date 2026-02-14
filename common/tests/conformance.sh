@@ -148,6 +148,16 @@ for platform in gitlab bitbucket github jenkins; do
     check_template "$platform" "$tmpl" "$status" || true
   done
 
+  # Check required flow jobs in gitflow-jobs
+  flowjobs_file="$REPO_ROOT/${platform}/ci/.gitflow-jobs.yml"
+  if [ -f "$flowjobs_file" ]; then
+    check_jobs "$flowjobs_file" "$status" \
+      "tomshley-cicd-flow-release-start" \
+      "tomshley-cicd-flow-release-publish" \
+      "tomshley-cicd-flow-release-finish" \
+      "tomshley-cicd-flow-hotfix-finish"
+  fi
+
   # Check required variables in gitflow-base
   gitflow_file="$REPO_ROOT/${platform}/ci/.gitflow-base.yml"
   if [ -f "$gitflow_file" ]; then
