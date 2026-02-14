@@ -2,5 +2,280 @@
 #
 # Licensed under the Apache License, Version 2.0
 
-# Flow lifecycle scripts were removed; this file is intentionally empty.
-# Consumers should not include this file until new implementations are added.
+# ---------------------------------------------------------------------------
+# Git Flow lifecycle jobs.
+# Consumers include this file to get automated release/hotfix flow management.
+#
+# Required CI/CD variables (set in project or group settings):
+#   TOMSHLEY_CICD_GIT_PUSH_TOKEN  — Access token with write_repository scope
+#   TOMSHLEY_CICD_GIT_PUSH_USER   — Username for git push
+#
+# Fallback chain:
+#   Token: TOMSHLEY_CICD_GIT_PUSH_TOKEN → GL_PASSWORD → CI_JOB_TOKEN
+#   User:  TOMSHLEY_CICD_GIT_PUSH_USER  → GITLAB_USER_LOGIN → gitlab-ci-token
+#
+# If using CI_JOB_TOKEN (the default fallback), enable
+# "CI/CD job token can push to this project" in
+# Settings > CI/CD > Token Access.
+#
+# Security: If using TOMSHLEY_CICD_GIT_PUSH_TOKEN or GL_PASSWORD, mark the
+# variable as "Masked" in CI/CD settings to prevent credential exposure in
+# git error output. CI_JOB_TOKEN is masked by GitLab automatically.
+#
+# Note: flow-feature-start (auto-create MR) is NOT implemented here.
+# MR/PR creation APIs are fundamentally platform-specific (GitLab MR vs
+# GitHub PR vs Bitbucket PR vs Jenkins — no shared contract). Each platform
+# must provide its own implementation if desired.
+# ---------------------------------------------------------------------------
+
+
+#region Git Push Configuration
+.tomshley-cicd-git-push-config:
+  image: alpine:3.19
+  tags:
+    - saas-linux-small-amd64
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+  before_script:
+    - apk add --no-cache git
+    - |
+      set -e
+      git config --global user.email "${GITLAB_USER_EMAIL}"
+      git config --global user.name "${GITLAB_USER_NAME}"
+      GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
+      GIT_PUSH_TOKEN="${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-${GL_PASSWORD:-$CI_JOB_TOKEN}}"
+      CI_URL_NO_SCHEME=$(echo "${CI_PROJECT_URL}" | sed -E 's|https?://||')
+      git remote set-url origin "https://${GIT_PUSH_USER}:${GIT_PUSH_TOKEN}@${CI_URL_NO_SCHEME}.git"
+#endregion
+
+
+#region Flow: release-start (develop → release/*)
+tomshley-cicd-flow-release-start:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+
+      git fetch --tags
+      git checkout develop
+      git pull origin develop --rebase --prune
+
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      if ! echo "$CURRENT_VERSION" | grep -qE '^v?[0-9]+(\.[0-9]+)*$'; then
+        echo "ERROR: VERSION content '${CURRENT_VERSION}' is not valid semver — aborting"
+        exit 1
+      fi
+      VERSION_PREFIX=""
+      case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+      NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+
+      echo "Current version: ${CURRENT_VERSION}"
+      echo "Next version:    ${NEXT_VERSION}"
+
+      if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+        exit 1
+      fi
+      if git branch -r | grep -q 'origin/release/'; then
+        echo "ERROR: An active release branch already exists — aborting"
+        exit 1
+      fi
+      if git rev-parse --verify "origin/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: release/${NEXT_VERSION} already exists on remote — aborting"
+        exit 1
+      fi
+      git checkout -b "release/${NEXT_VERSION}"
+
+      echo "${NEXT_VERSION}" > "$VERSION_FILE"
+      git add "$VERSION_FILE"
+      git commit -m "chore: bump version to ${NEXT_VERSION}"
+      git push --set-upstream origin "release/${NEXT_VERSION}"
+#endregion
+
+
+#region Flow: release-publish (extension point for release lifecycle)
+# This job is intentionally a no-op in the default implementation.
+# It runs on every release/* branch pipeline as a hook point where
+# consumers can add release-candidate artifact publishing or other
+# pre-finish steps by overriding the script block.
+# To override in a consumer, redefine the script in your .gitlab-ci.yml:
+#   tomshley-cicd-flow-release-publish:
+#     script:
+#       - echo "custom publish logic here"
+tomshley-cicd-flow-release-publish:
+  stage: deploy
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: on_success
+  allow_failure: false
+  script:
+    - |
+      set -e
+      echo "Release publish: no default action (override this job in consumers)"
+      echo "Branch: ${CI_COMMIT_BRANCH}"
+#endregion
+
+
+#region Flow: release-finish (release/* → main + develop, tag, cleanup)
+tomshley-cicd-flow-release-finish:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+      RELEASE_BRANCH="${CI_COMMIT_BRANCH}"
+
+      git fetch --tags
+      git checkout "${RELEASE_BRANCH}"
+      git pull origin "${RELEASE_BRANCH}" --ff-only --prune
+
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
+      RELEASE_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      if ! echo "$RELEASE_VERSION" | grep -qE '^v?[0-9]+(\.[0-9]+)*$'; then
+        echo "ERROR: VERSION content '${RELEASE_VERSION}' is not valid semver — aborting"
+        exit 1
+      fi
+      FINISH_MESSAGE="Tomshley Release Version ${RELEASE_VERSION}"
+
+      echo "Finishing release: ${RELEASE_BRANCH}"
+      echo "Release version:  ${RELEASE_VERSION}"
+
+      if git rev-parse "refs/tags/${RELEASE_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${RELEASE_VERSION} already exists — aborting"
+        exit 1
+      fi
+
+      export GIT_MERGE_AUTOEDIT=no
+      git checkout main
+      git pull origin main --ff-only --prune
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main | [skip ci]"
+      git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
+      git checkout develop
+      git pull origin develop --ff-only --prune
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
+      git branch -d "${RELEASE_BRANCH}"
+      PUSH_REFS="main develop refs/tags/${RELEASE_VERSION}"
+      if git ls-remote --exit-code origin "refs/heads/${RELEASE_BRANCH}" >/dev/null 2>&1; then
+        PUSH_REFS="${PUSH_REFS} :${RELEASE_BRANCH}"
+      else
+        echo "WARN: Remote branch ${RELEASE_BRANCH} already deleted — skipping deletion refspec"
+      fi
+      echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
+      git push --atomic origin ${PUSH_REFS}
+      unset GIT_MERGE_AUTOEDIT
+#endregion
+
+
+#region Flow: hotfix-finish (hotfix/* → main + develop, tag, cleanup)
+tomshley-cicd-flow-hotfix-finish:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+      HOTFIX_BRANCH="${CI_COMMIT_BRANCH}"
+
+      # Step 1: Bump version on hotfix branch
+      git fetch --tags
+      git checkout "${HOTFIX_BRANCH}"
+      git pull origin "${HOTFIX_BRANCH}" --ff-only --prune
+
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      if ! echo "$CURRENT_VERSION" | grep -qE '^v?[0-9]+(\.[0-9]+)*$'; then
+        echo "ERROR: VERSION content '${CURRENT_VERSION}' is not valid semver — aborting"
+        exit 1
+      fi
+
+      # Compare hotfix VERSION to main — skip bump if already different (manual bump)
+      MAIN_VERSION=$(git show origin/main:VERSION 2>/dev/null | tr -d '[:space:]' || echo "")
+      if [ -n "$MAIN_VERSION" ] && [ "$CURRENT_VERSION" != "$MAIN_VERSION" ]; then
+        NEXT_VERSION="$CURRENT_VERSION"
+        echo "VERSION already differs from main (${MAIN_VERSION}) — using ${NEXT_VERSION} as-is"
+      else
+        VERSION_PREFIX=""
+        case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+        CLEAN_VERSION="${CURRENT_VERSION#v}"
+        NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+
+        echo "${NEXT_VERSION}" > "$VERSION_FILE"
+        git add "$VERSION_FILE"
+        git commit -m "chore: bump version to ${NEXT_VERSION}"
+      fi
+      FINISH_MESSAGE="Tomshley Hotfix Version ${NEXT_VERSION}"
+
+      echo "Finishing hotfix: ${HOTFIX_BRANCH}"
+      echo "Next version:    ${NEXT_VERSION}"
+
+      # Step 2: Merge to main and develop, tag, cleanup
+      if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+        exit 1
+      fi
+
+      export GIT_MERGE_AUTOEDIT=no
+      git checkout main
+      git pull origin main --ff-only --prune
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main | [skip ci]"
+      git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
+      git checkout develop
+      git pull origin develop --ff-only --prune
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
+      git branch -d "${HOTFIX_BRANCH}"
+      PUSH_REFS="main develop refs/tags/${NEXT_VERSION}"
+      if git ls-remote --exit-code origin "refs/heads/${HOTFIX_BRANCH}" >/dev/null 2>&1; then
+        PUSH_REFS="${PUSH_REFS} :${HOTFIX_BRANCH}"
+      else
+        echo "WARN: Remote branch ${HOTFIX_BRANCH} already deleted — skipping deletion refspec"
+      fi
+      echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
+      git push --atomic origin ${PUSH_REFS}
+      unset GIT_MERGE_AUTOEDIT
+#endregion
