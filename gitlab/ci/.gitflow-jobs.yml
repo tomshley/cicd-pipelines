@@ -66,22 +66,25 @@ tomshley-cicd-flow-release-start:
       cd "${CI_PROJECT_DIR}"
 
       VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
-      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
-      CLEAN_VERSION="${CURRENT_VERSION#v}"
-
-      NEXT_VERSION="v$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
-
-      echo "Current version: ${CURRENT_VERSION}"
-      echo "Next version:    ${NEXT_VERSION}"
 
       git fetch
       git checkout develop
       git pull origin develop --rebase --prune
+
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      VERSION_PREFIX=""
+      case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+      NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+
+      echo "Current version: ${CURRENT_VERSION}"
+      echo "Next version:    ${NEXT_VERSION}"
+
       git checkout -b "release/${NEXT_VERSION}"
 
       echo "${NEXT_VERSION}" > "$VERSION_FILE"
       git add "$VERSION_FILE"
-      git commit -m "$(git log --format='%s' -n 1) | bumping version to ${NEXT_VERSION}"
+      git commit -m "chore: bump version to ${NEXT_VERSION}"
       git push --set-upstream origin "release/${NEXT_VERSION}"
 #endregion
 
@@ -110,7 +113,14 @@ tomshley-cicd-flow-release-publish:
       git checkout "${RELEASE_BRANCH}"
       git branch --set-upstream-to "origin/${RELEASE_BRANCH}"
       git pull origin "${RELEASE_BRANCH}" --rebase --prune
-      git push -u origin HEAD:"${RELEASE_BRANCH}"
+
+      LOCAL_SHA=$(git rev-parse HEAD)
+      REMOTE_SHA=$(git rev-parse "origin/${RELEASE_BRANCH}")
+      if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then
+        echo "Release branch already in sync with remote — skipping push"
+      else
+        git push -u origin HEAD:"${RELEASE_BRANCH}"
+      fi
 #endregion
 
 
@@ -146,11 +156,16 @@ tomshley-cicd-flow-release-finish:
       git checkout main
       git pull origin main --rebase --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
+      if git rev-parse "${RELEASE_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${RELEASE_VERSION} already exists — aborting"
+        exit 1
+      fi
       git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --rebase --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${RELEASE_BRANCH}"
+      echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
       git push origin main
       git push origin develop
       git push origin --tags
@@ -176,22 +191,26 @@ tomshley-cicd-flow-hotfix-finish:
       cd "${CI_PROJECT_DIR}"
 
       VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
-      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
-      CLEAN_VERSION="${CURRENT_VERSION#v}"
-      NEXT_VERSION="v$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
       HOTFIX_BRANCH="${CI_COMMIT_BRANCH}"
-      FINISH_MESSAGE="Tomshley Hotfix Version ${NEXT_VERSION}"
-
-      echo "Finishing hotfix: ${HOTFIX_BRANCH}"
-      echo "Next version:    ${NEXT_VERSION}"
 
       # Step 1: Bump version on hotfix branch
       git fetch
       git checkout "${HOTFIX_BRANCH}"
       git pull origin "${HOTFIX_BRANCH}" --rebase --prune
+
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      VERSION_PREFIX=""
+      case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+      NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+      FINISH_MESSAGE="Tomshley Hotfix Version ${NEXT_VERSION}"
+
+      echo "Finishing hotfix: ${HOTFIX_BRANCH}"
+      echo "Next version:    ${NEXT_VERSION}"
+
       echo "${NEXT_VERSION}" > "$VERSION_FILE"
       git add "$VERSION_FILE"
-      git commit -m "$(git log --format='%s' -n 1) | bumping version to ${NEXT_VERSION}"
+      git commit -m "chore: bump version to ${NEXT_VERSION}"
       git push --set-upstream origin "${HOTFIX_BRANCH}"
 
       # Step 2: Merge to main and develop, tag, cleanup
@@ -199,11 +218,16 @@ tomshley-cicd-flow-hotfix-finish:
       git checkout main
       git pull origin main --rebase --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
+      if git rev-parse "${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+        exit 1
+      fi
       git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --rebase --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${HOTFIX_BRANCH}"
+      echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
       git push origin main
       git push origin develop
       git push origin --tags
