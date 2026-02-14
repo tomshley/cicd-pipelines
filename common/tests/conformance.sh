@@ -65,7 +65,8 @@ check_jobs() {
   local file="$1" status="$2"
   shift 2
   for job in "$@"; do
-    if grep -q "^${job}:" "$file" 2>/dev/null; then
+    escaped_job=$(printf '%s' "$job" | sed 's/[.[\*^$()+?{|]/\\&/g')
+    if grep -q "^${escaped_job}:" "$file" 2>/dev/null; then
       log_ok "  $job defined in $(basename "$file")"
     else
       if [ "$status" = "active" ]; then
