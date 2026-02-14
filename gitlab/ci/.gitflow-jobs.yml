@@ -80,6 +80,10 @@ tomshley-cicd-flow-release-start:
       echo "Current version: ${CURRENT_VERSION}"
       echo "Next version:    ${NEXT_VERSION}"
 
+      if git rev-parse --verify "origin/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: release/${NEXT_VERSION} already exists on remote — aborting"
+        exit 1
+      fi
       git checkout -b "release/${NEXT_VERSION}"
 
       echo "${NEXT_VERSION}" > "$VERSION_FILE"
@@ -90,6 +94,11 @@ tomshley-cicd-flow-release-start:
 
 
 #region Flow: release-publish (sync release branch to remote)
+# This job is a hook point for the release lifecycle. In the default
+# implementation it syncs the release branch to remote after build/test.
+# It will be a no-op when no local changes exist (the common case).
+# Consumers can extend this job to add release-candidate artifact
+# publishing or other pre-finish steps.
 tomshley-cicd-flow-release-publish:
   stage: deploy
   extends:
@@ -141,35 +150,34 @@ tomshley-cicd-flow-release-finish:
       cd "${CI_PROJECT_DIR}"
 
       VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
-      RELEASE_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
       RELEASE_BRANCH="${CI_COMMIT_BRANCH}"
-      FINISH_MESSAGE="Tomshley Release Version ${RELEASE_VERSION}"
-
-      echo "Finishing release: ${RELEASE_BRANCH}"
-      echo "Release version:  ${RELEASE_VERSION}"
 
       git fetch
       git checkout "${RELEASE_BRANCH}"
       git pull origin "${RELEASE_BRANCH}" --rebase --prune
 
+      RELEASE_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      FINISH_MESSAGE="Tomshley Release Version ${RELEASE_VERSION}"
+
+      echo "Finishing release: ${RELEASE_BRANCH}"
+      echo "Release version:  ${RELEASE_VERSION}"
+
+      if git rev-parse "refs/tags/${RELEASE_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${RELEASE_VERSION} already exists — aborting"
+        exit 1
+      fi
+
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --rebase --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
-      if git rev-parse "${RELEASE_VERSION}" >/dev/null 2>&1; then
-        echo "ERROR: Tag ${RELEASE_VERSION} already exists — aborting"
-        exit 1
-      fi
       git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --rebase --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${RELEASE_BRANCH}"
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
-      git push origin main
-      git push origin develop
-      git push origin --tags
-      git push origin :"${RELEASE_BRANCH}"
+      git push origin main develop --tags :"${RELEASE_BRANCH}"
       unset GIT_MERGE_AUTOEDIT
 #endregion
 
@@ -214,23 +222,21 @@ tomshley-cicd-flow-hotfix-finish:
       git push --set-upstream origin "${HOTFIX_BRANCH}"
 
       # Step 2: Merge to main and develop, tag, cleanup
+      if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+        exit 1
+      fi
+
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --rebase --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
-      if git rev-parse "${NEXT_VERSION}" >/dev/null 2>&1; then
-        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
-        exit 1
-      fi
       git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --rebase --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${HOTFIX_BRANCH}"
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
-      git push origin main
-      git push origin develop
-      git push origin --tags
-      git push origin :"${HOTFIX_BRANCH}"
+      git push origin main develop --tags :"${HOTFIX_BRANCH}"
       unset GIT_MERGE_AUTOEDIT
 #endregion
