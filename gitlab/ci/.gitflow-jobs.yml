@@ -40,6 +40,7 @@
   before_script:
     - apk add --no-cache git
     - |
+      set -e
       git config --global user.email "${GITLAB_USER_EMAIL}"
       git config --global user.name "${GITLAB_USER_NAME}"
       GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
@@ -71,6 +72,10 @@ tomshley-cicd-flow-release-start:
       git checkout develop
       git pull origin develop --rebase --prune
 
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
       CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
       VERSION_PREFIX=""
       case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
@@ -156,6 +161,10 @@ tomshley-cicd-flow-release-finish:
       git checkout "${RELEASE_BRANCH}"
       git pull origin "${RELEASE_BRANCH}" --rebase --prune
 
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
       RELEASE_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
       FINISH_MESSAGE="Tomshley Release Version ${RELEASE_VERSION}"
 
@@ -177,7 +186,7 @@ tomshley-cicd-flow-release-finish:
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${RELEASE_BRANCH}"
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
-      git push origin main develop --tags :"${RELEASE_BRANCH}"
+      git push --atomic origin main develop --tags :"${RELEASE_BRANCH}"
       unset GIT_MERGE_AUTOEDIT
 #endregion
 
@@ -206,6 +215,10 @@ tomshley-cicd-flow-hotfix-finish:
       git checkout "${HOTFIX_BRANCH}"
       git pull origin "${HOTFIX_BRANCH}" --rebase --prune
 
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
       CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
       VERSION_PREFIX=""
       case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
@@ -219,7 +232,6 @@ tomshley-cicd-flow-hotfix-finish:
       echo "${NEXT_VERSION}" > "$VERSION_FILE"
       git add "$VERSION_FILE"
       git commit -m "chore: bump version to ${NEXT_VERSION}"
-      git push --set-upstream origin "${HOTFIX_BRANCH}"
 
       # Step 2: Merge to main and develop, tag, cleanup
       if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
@@ -237,6 +249,6 @@ tomshley-cicd-flow-hotfix-finish:
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
       git branch -d "${HOTFIX_BRANCH}"
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
-      git push origin main develop --tags :"${HOTFIX_BRANCH}"
+      git push --atomic origin main develop --tags :"${HOTFIX_BRANCH}"
       unset GIT_MERGE_AUTOEDIT
 #endregion
