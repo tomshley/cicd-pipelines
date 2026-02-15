@@ -1,8 +1,8 @@
 # Roadmap
 
-## Versioned Milestones
+## Shipped Milestones
 
-### v0.0.1 — GitLab Foundation (current)
+### v0.0.1 — GitLab Foundation
 
 - [x] Common specs (10 files): naming-conventions, platform-status, stage-ordering,
       flow-types, flow-jobs, publish-policy, container-tags, security-scanning,
@@ -14,25 +14,51 @@
 - [x] Root Makefile, internal .gitlab-ci.yml
 - [x] Documentation: README.md, ROADMAP.md, SECURITY.md, .gitattributes
 
-### v0.1.0 — Bitbucket Pipelines
+### v0.1.0 — Rust Runner
+
+- [x] `sbtrustdockertofu` runner image (SBT + Rust + Docker + OpenTofu)
+- [x] `.sbt-rust-runtime.yml` GitLab CI template
+- [x] `BASE_CONTAINERS_UPSTREAM_TAG` bump to 0.4.1
+
+### v0.2.0 — SBT Artifact Tags
+
+- [x] `.sbt-artifact-tags.yml` dual-publish strategy (pinnable + rolling tags)
+- [x] Develop revision prefix rename (`dev-` → `develop-`)
+
+### v0.3.0 — SBT Docker Publish
+
+- [x] `.sbt-docker-publish.yml` registered as required implementation
+- [x] Pinned-version drift check for `BASE_CONTAINERS_UPSTREAM_TAG` in `.sbt-docker-publish.yml`
+
+### v0.4.0 — Git Flow Lifecycle Jobs
+
+- [x] `.gitflow-jobs.yml` with release-start, release-publish, release-finish, hotfix-finish
+- [x] Full defensive validation (VERSION semver, tag existence, concurrent release guard, atomic push)
+- [x] Token fallback chain with masking guidance
+- [x] cicd-pipelines dogfoods its own gitflow-jobs.yml
+- [x] Conformance tests for flow job names
+
+## Planned Milestones
+
+### v0.5.0 — Git LFS Common Template
+
+- [ ] `common/runners/scripts/lfs-setup.sh` cross-platform LFS bootstrap script
+- [ ] `gitlab/ci/.lfs-runtime.yml` GitLab hidden job (`.tomshley-cicd-lfs-runtime`)
+- [ ] Consumers extend `.tomshley-cicd-lfs-runtime` for build/publish jobs needing LFS content
+- [ ] Bitbucket/GitHub equivalents as platforms go active
+
+### v0.6.0 — Bitbucket Pipelines
 
 - [ ] Bitbucket CI templates implementing common specs
-- [ ] Bitbucket runner images (if needed — Bitbucket uses Atlassian-hosted runners)
 - [ ] Platform status: bitbucket → active
 
-### v0.2.0 — Complete Pipelines
-
-- [ ] Batteries-included `pipeline-*.yml` for all 8 categories (GitLab first)
-- [ ] Bitbucket pipeline equivalents
-- [ ] Consumer usage examples
-
-### v0.3.0 — Additional Runners
+### v0.7.0 — Additional Runners
 
 - [ ] `polyglot` runner image (SBT + Python + Node — for schema-registry)
 - [ ] `infratofu` runner image (OpenTofu + Python — for terraform)
 - [ ] `acceptance` runner image (Python + Node — for acceptance tests)
 
-### v0.4.0 — GitHub Actions
+### v0.8.0 — GitHub Actions
 
 - [ ] `github/ci/` composite actions + reusable workflows
 - [ ] Platform status: github → active
