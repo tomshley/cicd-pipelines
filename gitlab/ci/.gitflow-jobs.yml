@@ -43,6 +43,7 @@
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
     TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX: "Tomshley CI Pipeline"
+    TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER: "[skip ci]"
   before_script:
     - apk add --no-cache git curl bash
     - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
@@ -208,11 +209,11 @@ tomshley-cicd-flow-release-finish:
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --ff-only --prune
-      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main | [skip ci]"
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
       git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
-      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
       git branch -D "${RELEASE_BRANCH}"
       PUSH_REFS="main develop refs/tags/${RELEASE_VERSION}"
       if git ls-remote --exit-code origin "refs/heads/${RELEASE_BRANCH}" >/dev/null 2>&1; then
@@ -314,11 +315,11 @@ tomshley-cicd-flow-hotfix-finish:
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --ff-only --prune
-      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main | [skip ci]"
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
       git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
-      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
       git branch -D "${HOTFIX_BRANCH}"
       PUSH_REFS="main develop refs/tags/${NEXT_VERSION}"
       if git ls-remote --exit-code origin "refs/heads/${HOTFIX_BRANCH}" >/dev/null 2>&1; then
