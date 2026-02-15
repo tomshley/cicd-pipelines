@@ -116,12 +116,14 @@ tomshley-cicd-flow-release-start:
       case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
       CLEAN_VERSION="${CURRENT_VERSION#v}"
       NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+      NEXT_VERSION_NO_PREFIX="${NEXT_VERSION#v}"
+      NEXT_TAG_VERSION="v${NEXT_VERSION_NO_PREFIX}"
 
       echo "Current version: ${CURRENT_VERSION}"
       echo "Next version:    ${NEXT_VERSION}"
 
-      if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
-        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+      if git rev-parse "refs/tags/${NEXT_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_TAG_VERSION} already exists — aborting"
         exit 1
       fi
       if git branch -r | grep -q 'origin/release/'; then
@@ -198,13 +200,15 @@ tomshley-cicd-flow-release-finish:
         echo "ERROR: VERSION content '${RELEASE_VERSION}' is not valid semver — aborting"
         exit 1
       fi
+      RELEASE_VERSION_NO_PREFIX="${RELEASE_VERSION#v}"
+      RELEASE_TAG_VERSION="v${RELEASE_VERSION_NO_PREFIX}"
       FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX} Release Version ${RELEASE_VERSION}"
 
       echo "Finishing release: ${RELEASE_BRANCH}"
       echo "Release version:  ${RELEASE_VERSION}"
 
-      if git rev-parse "refs/tags/${RELEASE_VERSION}" >/dev/null 2>&1; then
-        echo "ERROR: Tag ${RELEASE_VERSION} already exists — aborting"
+      if git rev-parse "refs/tags/${RELEASE_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${RELEASE_TAG_VERSION} already exists — aborting"
         exit 1
       fi
 
@@ -212,12 +216,12 @@ tomshley-cicd-flow-release-finish:
       git checkout main
       git pull origin main --ff-only --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
-      git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
+      git tag -a "${RELEASE_TAG_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
       git branch -D "${RELEASE_BRANCH}"
-      PUSH_REFS="main develop refs/tags/${RELEASE_VERSION}"
+      PUSH_REFS="main develop refs/tags/${RELEASE_TAG_VERSION}"
       if git ls-remote --exit-code origin "refs/heads/${RELEASE_BRANCH}" >/dev/null 2>&1; then
         PUSH_REFS="${PUSH_REFS} :${RELEASE_BRANCH}"
       else
@@ -303,14 +307,16 @@ tomshley-cicd-flow-hotfix-finish:
         git add "$VERSION_FILE"
         git commit -m "chore: bump version to ${NEXT_VERSION}"
       fi
+      NEXT_VERSION_NO_PREFIX="${NEXT_VERSION#v}"
+      HOTFIX_TAG_VERSION="v${NEXT_VERSION_NO_PREFIX}"
       FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX} Hotfix Version ${NEXT_VERSION}"
 
       echo "Finishing hotfix: ${HOTFIX_BRANCH}"
       echo "Next version:    ${NEXT_VERSION}"
 
       # Step 2: Merge to main and develop, tag, cleanup
-      if git rev-parse "refs/tags/${NEXT_VERSION}" >/dev/null 2>&1; then
-        echo "ERROR: Tag ${NEXT_VERSION} already exists — aborting"
+      if git rev-parse "refs/tags/${HOTFIX_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${HOTFIX_TAG_VERSION} already exists — aborting"
         exit 1
       fi
 
@@ -318,12 +324,12 @@ tomshley-cicd-flow-hotfix-finish:
       git checkout main
       git pull origin main --ff-only --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
-      git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
+      git tag -a "${HOTFIX_TAG_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
       git branch -D "${HOTFIX_BRANCH}"
-      PUSH_REFS="main develop refs/tags/${NEXT_VERSION}"
+      PUSH_REFS="main develop refs/tags/${HOTFIX_TAG_VERSION}"
       if git ls-remote --exit-code origin "refs/heads/${HOTFIX_BRANCH}" >/dev/null 2>&1; then
         PUSH_REFS="${PUSH_REFS} :${HOTFIX_BRANCH}"
       else
