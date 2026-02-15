@@ -22,6 +22,10 @@ flow_jobs:
     stage: ".post"
     trigger: "release/* branch (manual)"
     purpose: "Merge release into main + develop, tag"
+  - name: flow-hotfix-publish
+    stage: "deploy"
+    trigger: "hotfix/* branch"
+    purpose: "Publish hotfix artifacts"
   - name: flow-hotfix-finish
     stage: ".post"
     trigger: "hotfix/* branch (manual)"
