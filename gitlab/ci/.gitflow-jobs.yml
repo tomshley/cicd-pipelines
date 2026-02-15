@@ -211,7 +211,7 @@ tomshley-cicd-flow-release-finish:
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --ff-only --prune
-      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
+      git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
       git tag -a "${RELEASE_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
@@ -317,7 +317,7 @@ tomshley-cicd-flow-hotfix-finish:
       export GIT_MERGE_AUTOEDIT=no
       git checkout main
       git pull origin main --ff-only --prune
-      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
+      git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | main"
       git tag -a "${NEXT_VERSION}" -m "${FINISH_MESSAGE}"
       git checkout develop
       git pull origin develop --ff-only --prune
