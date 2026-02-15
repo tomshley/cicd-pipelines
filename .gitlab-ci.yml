@@ -99,12 +99,16 @@ build-runner-images:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
     - if: '$CI_COMMIT_BRANCH == "develop"'
-    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
     - if: '$CI_COMMIT_TAG'
     - if: '$CI_COMMIT_BRANCH =~ /^feature\/.+$/'
       when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: manual
+      allow_failure: true
     - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
       when: manual
+      allow_failure: true
 
 # ── Publish Runner Images ────────────────────────────────────────────────────
 
