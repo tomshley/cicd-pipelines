@@ -60,6 +60,8 @@
       git config --global filter.lfs.clean "cat"
       git config --global filter.lfs.required false
       rm -f .git/hooks/post-checkout .git/hooks/pre-push .git/hooks/post-commit .git/hooks/post-merge 2>/dev/null || true
+      # Reset working tree after LFS filter change (tracked files appear modified)
+      git checkout -- . 2>/dev/null || true
       git config --global user.email "${GITLAB_USER_EMAIL}"
       git config --global user.name "${GITLAB_USER_NAME}"
       # Resolve token first, then pick the matching user.
