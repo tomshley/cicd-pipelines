@@ -18,6 +18,11 @@
 # "CI/CD job token can push to this project" in
 # Settings > CI/CD > Token Access.
 #
+# Optional:
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for merge/tag messages
+#     Default: "Tomshley CI Pipeline"
+#     Override to customise commit messages, e.g. "Acme Corp"
+#
 # Security: If using TOMSHLEY_CICD_GIT_PUSH_TOKEN or GL_PASSWORD, mark the
 # variable as "Masked" in CI/CD settings to prevent credential exposure in
 # git error output. CI_JOB_TOKEN is masked by GitLab automatically.
@@ -37,14 +42,30 @@
   variables:
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
+    TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX: "Tomshley CI Pipeline"
   before_script:
     - apk add --no-cache git
     - |
       set -e
+      # Neutralize LFS so hooks/filters don't block gitflow operations
+      git config --global filter.lfs.smudge "cat"
+      git config --global filter.lfs.clean "cat"
+      git config --global filter.lfs.required false
+      rm -f .git/hooks/post-checkout .git/hooks/pre-push .git/hooks/post-commit .git/hooks/post-merge 2>/dev/null || true
       git config --global user.email "${GITLAB_USER_EMAIL}"
       git config --global user.name "${GITLAB_USER_NAME}"
-      GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
-      GIT_PUSH_TOKEN="${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-${GL_PASSWORD:-$CI_JOB_TOKEN}}"
+      # Resolve token first, then pick the matching user.
+      # CI_JOB_TOKEN requires user "gitlab-ci-token"; personal/project tokens use the login.
+      if [ -n "${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-}" ]; then
+        GIT_PUSH_TOKEN="${TOMSHLEY_CICD_GIT_PUSH_TOKEN}"
+        GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
+      elif [ -n "${GL_PASSWORD:-}" ]; then
+        GIT_PUSH_TOKEN="${GL_PASSWORD}"
+        GIT_PUSH_USER="${TOMSHLEY_CICD_GIT_PUSH_USER:-${GITLAB_USER_LOGIN:-gitlab-ci-token}}"
+      else
+        GIT_PUSH_TOKEN="${CI_JOB_TOKEN}"
+        GIT_PUSH_USER="gitlab-ci-token"
+      fi
       CI_URL_NO_SCHEME=$(echo "${CI_PROJECT_URL}" | sed -E 's|https?://||')
       git remote set-url origin "https://${GIT_PUSH_USER}:${GIT_PUSH_TOKEN}@${CI_URL_NO_SCHEME}.git"
 #endregion
@@ -112,26 +133,24 @@ tomshley-cicd-flow-release-start:
 
 #region Flow: release-publish (extension point for release lifecycle)
 # This job is intentionally a no-op in the default implementation.
-# It runs on every release/* branch pipeline as a hook point where
-# consumers can add release-candidate artifact publishing or other
-# pre-finish steps by overriding the script block.
+# It appears as a manual trigger on release/* branch pipelines as a
+# hook point where consumers can add release-candidate artifact
+# publishing or other pre-finish steps by overriding the script block.
 # To override in a consumer, redefine the script in your .gitlab-ci.yml:
 #   tomshley-cicd-flow-release-publish:
 #     script:
 #       - echo "custom publish logic here"
 tomshley-cicd-flow-release-publish:
   stage: deploy
-  extends:
-    - .tomshley-cicd-git-push-config
+  image: alpine:3.19
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
     - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
-      when: on_success
-  allow_failure: false
+      when: manual
+      allow_failure: true
   script:
     - |
-      set -e
       echo "Release publish: no default action (override this job in consumers)"
       echo "Branch: ${CI_COMMIT_BRANCH}"
 #endregion
@@ -169,7 +188,7 @@ tomshley-cicd-flow-release-finish:
         echo "ERROR: VERSION content '${RELEASE_VERSION}' is not valid semver — aborting"
         exit 1
       fi
-      FINISH_MESSAGE="Tomshley Release Version ${RELEASE_VERSION}"
+      FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX} Release Version ${RELEASE_VERSION}"
 
       echo "Finishing release: ${RELEASE_BRANCH}"
       echo "Release version:  ${RELEASE_VERSION}"
@@ -187,7 +206,7 @@ tomshley-cicd-flow-release-finish:
       git checkout develop
       git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
-      git branch -d "${RELEASE_BRANCH}"
+      git branch -D "${RELEASE_BRANCH}"
       PUSH_REFS="main develop refs/tags/${RELEASE_VERSION}"
       if git ls-remote --exit-code origin "refs/heads/${RELEASE_BRANCH}" >/dev/null 2>&1; then
         PUSH_REFS="${PUSH_REFS} :${RELEASE_BRANCH}"
@@ -197,6 +216,31 @@ tomshley-cicd-flow-release-finish:
       echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
       git push --atomic origin ${PUSH_REFS}
       unset GIT_MERGE_AUTOEDIT
+#endregion
+
+
+#region Flow: hotfix-publish (extension point for hotfix lifecycle)
+# This job is intentionally a no-op in the default implementation.
+# It appears as a manual trigger on hotfix/* branch pipelines as a
+# hook point where consumers can add hotfix artifact publishing or
+# other pre-finish steps by overriding the script block.
+# To override in a consumer, redefine the script in your .gitlab-ci.yml:
+#   tomshley-cicd-flow-hotfix-publish:
+#     script:
+#       - echo "custom publish logic here"
+tomshley-cicd-flow-hotfix-publish:
+  stage: deploy
+  image: alpine:3.19
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      echo "Hotfix publish: no default action (override this job in consumers)"
+      echo "Branch: ${CI_COMMIT_BRANCH}"
 #endregion
 
 
@@ -249,7 +293,7 @@ tomshley-cicd-flow-hotfix-finish:
         git add "$VERSION_FILE"
         git commit -m "chore: bump version to ${NEXT_VERSION}"
       fi
-      FINISH_MESSAGE="Tomshley Hotfix Version ${NEXT_VERSION}"
+      FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX} Hotfix Version ${NEXT_VERSION}"
 
       echo "Finishing hotfix: ${HOTFIX_BRANCH}"
       echo "Next version:    ${NEXT_VERSION}"
@@ -268,7 +312,7 @@ tomshley-cicd-flow-hotfix-finish:
       git checkout develop
       git pull origin develop --ff-only --prune
       git merge --no-ff --no-edit "${HOTFIX_BRANCH}" -m "${FINISH_MESSAGE} | develop | [skip ci]"
-      git branch -d "${HOTFIX_BRANCH}"
+      git branch -D "${HOTFIX_BRANCH}"
       PUSH_REFS="main develop refs/tags/${NEXT_VERSION}"
       if git ls-remote --exit-code origin "refs/heads/${HOTFIX_BRANCH}" >/dev/null 2>&1; then
         PUSH_REFS="${PUSH_REFS} :${HOTFIX_BRANCH}"
