@@ -44,14 +44,14 @@
     GIT_STRATEGY: clone
     TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX: "Tomshley CI Pipeline"
   before_script:
-    - apk add --no-cache git curl
+    - apk add --no-cache git curl bash
     - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
     - |
       set -e
       # Source secure-files .env if present (opinionated secret delivery)
-      if [ -f ".secure-files/.env" ]; then
+      if [ -f ".secure_files/.env" ]; then
         set -a
-        . .secure-files/.env
+        . .secure_files/.env
         set +a
       fi
       # Neutralize LFS so hooks/filters don't block gitflow operations
