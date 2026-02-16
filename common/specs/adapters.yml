@@ -1,0 +1,161 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Version Adapter Specifications
+# Defines the contract for version composition adapters across different ecosystems.
+
+adapters:
+  # SBT/JVM adapter specification
+  sbt:
+    ecosystem: "sbt"
+    file: "common/adapter-specs/sbt/CIBuildVersionKeys.scala"
+    description: "SBT plugin version composition for magicroot-sbt"
+    
+    # Environment variables
+    env_vars:
+      base_version: "TOMSHLEY_CICD_BUILD_VERSION"
+      build_revision: "TOMSHLEY_CICD_BUILD_REVISION"
+    
+    # Version composition rules
+    composition:
+      format: "base-revision"
+      separator: "-"
+      examples:
+        - base: "1.2.3"
+          revision: ""
+          result: "1.2.3"
+        - base: "1.2.3"
+          revision: "develop-abc1234"
+          result: "1.2.3-develop-abc1234"
+        - base: "1.2.3-SNAPSHOT"
+          revision: "feature-xyz"
+          result: "1.2.3-SNAPSHOT-feature-xyz"
+    
+    # Suffix normalization (none for SBT)
+    suffix_normalization: {}
+
+  # Node.js adapter specification
+  node:
+    ecosystem: "node"
+    file: "common/adapter-specs/node/sync-version.js"
+    description: "Node.js package.json version composition"
+    
+    env_vars:
+      base_version: "TOMSHLEY_CICD_BUILD_VERSION"
+      build_revision: "TOMSHLEY_CICD_BUILD_REVISION"
+    
+    composition:
+      format: "base-revision"
+      separator: "-"
+      examples:
+        - base: "1.2.3"
+          revision: ""
+          result: "1.2.3"
+        - base: "1.2.3"
+          revision: "develop-abc1234"
+          result: "1.2.3-develop-abc1234"
+    
+    suffix_normalization:
+      "-SNAPSHOT": "-0"
+      examples:
+        - input: "1.2.3-SNAPSHOT"
+          output: "1.2.3-0"
+        - input: "1.2.3-SNAPSHOT"
+          revision: "develop-abc1234"
+          output: "1.2.3-0-develop-abc1234"
+
+  # Python adapter specification
+  python:
+    ecosystem: "python"
+    file: "common/adapter-specs/python/version_resolver.py"
+    description: "Python setuptools version composition with PEP 440 normalization"
+    
+    env_vars:
+      base_version: "TOMSHLEY_CICD_BUILD_VERSION"
+      build_revision: "TOMSHLEY_CICD_BUILD_REVISION"
+    
+    composition:
+      format: "base+revision"
+      separator: "+"
+      examples:
+        - base: "1.2.3"
+          revision: ""
+          result: "1.2.3"
+        - base: "1.2.3"
+          revision: "develop-abc1234"
+          result: "1.2.3+develop.abc1234"
+    
+    suffix_normalization:
+      "-SNAPSHOT": ".dev0"
+      "-rc.N": "rcN"
+      examples:
+        - input: "1.2.3-SNAPSHOT"
+          output: "1.2.3.dev0"
+        - input: "1.2.3-rc.1"
+          output: "1.2.3rc1"
+        - input: "1.2.3-SNAPSHOT"
+          revision: "develop-abc1234"
+          output: "1.2.3.dev0+develop.abc1234"
+
+  # Makefile/Docker adapter specification
+  make:
+    ecosystem: "makefile"
+    file: "common/adapter-specs/make/version-tags.mk"
+    description: "Makefile fragment for Docker image tag composition"
+    
+    env_vars:
+      base_version: "TOMSHLEY_CICD_BUILD_VERSION"
+      build_revision: "TOMSHLEY_CICD_BUILD_REVISION"
+    
+    composition:
+      format: "base-revision"
+      separator: "-"
+      examples:
+        - base: "1.2.3"
+          revision: ""
+          result: "1.2.3"
+        - base: "1.2.3"
+          revision: "develop-abc1234"
+          result: "1.2.3-develop-abc1234"
+    
+    # Additional variables for Docker
+    variables:
+      - name: "TAG"
+        description: "Pinnable image tag (base-revision or base)"
+      - name: "TAG_LATEST"
+        description: "Rolling image tag (base-latest or base)"
+    
+    suffix_normalization: {}
+
+# Cross-ecosystem test matrix
+test_matrix:
+  # Test cases that should produce equivalent results across ecosystems
+  consistency_tests:
+    - base: "1.2.3"
+      revision: ""
+      sbt: "1.2.3"
+      node: "1.2.3"
+      python: "1.2.3"
+      make: "1.2.3"
+    
+    - base: "1.2.3"
+      revision: "develop-abc1234"
+      sbt: "1.2.3-develop-abc1234"
+      node: "1.2.3-develop-abc1234"
+      python: "1.2.3+develop.abc1234"
+      make: "1.2.3-develop-abc1234"
+    
+    - base: "1.2.3-SNAPSHOT"
+      revision: ""
+      sbt: "1.2.3-SNAPSHOT"
+      node: "1.2.3-0"
+      python: "1.2.3.dev0"
+      make: "1.2.3-SNAPSHOT"
+    
+    - base: "1.2.3-SNAPSHOT"
+      revision: "feature-xyz"
+      sbt: "1.2.3-SNAPSHOT-feature-xyz"
+      node: "1.2.3-0-feature-xyz"
+      python: "1.2.3.dev0+feature.xyz"
+      make: "1.2.3-SNAPSHOT-feature-xyz"
