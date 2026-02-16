@@ -45,6 +45,7 @@ In your project's `.gitlab-ci.yml`:
           - '/gitlab/ci/.security-scanning.yml'
           - '/gitlab/ci/.sbt-runtime.yml'            # pick the runtime you need
           - '/gitlab/ci/.sbt-docker-publish.yml'      # add if you publish docker images
+          - '/gitlab/ci/.mirror-push.yml'        # add if you mirror to a secondary remote
           - '/gitlab/ci/.docker-runtime.yml'           # add if you build containers
 
 ## Git Flow Lifecycle Jobs
@@ -99,6 +100,62 @@ The `release-publish` and `hotfix-publish` jobs are intentional no-ops. Override
       stage: deploy
       script:
         - make push   # or sbt docker:publish, etc.
+
+## Mirror Push
+
+Including `.mirror-push.yml` gives your project automated mirroring to a secondary remote (Bitbucket, GitHub, self-hosted, etc.).
+
+### Variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `TOMSHLEY_CICD_MIRROR_URL` | Yes | `""` | Remote URL (SSH or HTTPS). Empty = safe no-op. |
+| `TOMSHLEY_CICD_MIRROR_BRANCHES` | No | `"main"` | Comma-separated branch list (same name on mirror) |
+| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs for branch renaming. Overrides `BRANCHES` when set. |
+| `TOMSHLEY_CICD_MIRROR_TAGS` | No | `"true"` | Mirror tags: `true` or `false` |
+| `TOMSHLEY_CICD_MIRROR_SSH_KEY` | No | `""` | Path to SSH key in `.secure_files/` |
+| `TOMSHLEY_CICD_MIRROR_FORCE_PUSH` | No | `"true"` | `true` = `--force`, `false` = `--force-with-lease` |
+
+### Usage — Simple (no branch rename)
+
+    mirror-sync:
+      extends: tomshley-cicd-mirror-sync
+      variables:
+        TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
+        TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
+
+### Usage — Branch Rename (develop → contrib)
+
+    mirror-sync:
+      extends: tomshley-cicd-mirror-sync
+      variables:
+        TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
+        TOMSHLEY_CICD_MIRROR_BRANCH_MAP: "main:main,develop:contrib"
+
+### Usage — Multiple Remotes
+
+Define one job per remote. GitLab runs them in parallel with independent failure handling:
+
+    mirror-bitbucket:
+      extends: tomshley-cicd-mirror-sync
+      variables:
+        TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
+        TOMSHLEY_CICD_MIRROR_BRANCH_MAP: "main:main,develop:contrib"
+        TOMSHLEY_CICD_MIRROR_SSH_KEY: ".secure_files/bitbucket_key"
+
+    mirror-github:
+      extends: tomshley-cicd-mirror-sync
+      variables:
+        TOMSHLEY_CICD_MIRROR_URL: "git@github.com:org/repo.git"
+        TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
+        TOMSHLEY_CICD_MIRROR_SSH_KEY: ".secure_files/github_key"
+
+### Behavior
+
+- Runs in `.post` stage with `allow_failure: true` — mirror issues never block the main pipeline
+- Skipped on merge request pipelines
+- SSH key setup is automatic when `TOMSHLEY_CICD_MIRROR_SSH_KEY` is set (supports IPv6 hosts)
+- Credentials are never logged — HTTPS URLs are sanitized before display
 
 ## Pipeline Categories
 

@@ -40,8 +40,11 @@
 
 ## Planned Milestones
 
-### v0.5.0 — Git LFS Common Template
+### v0.5.0 — Mirror Push + Git LFS
 
+- [ ] `common/specs/mirror-push.yml` cross-platform mirror push contract
+- [ ] `gitlab/ci/.mirror-push.yml` GitLab mirror sync job
+- [ ] Conformance tests for mirror-push template
 - [ ] `common/runners/scripts/lfs-setup.sh` cross-platform LFS bootstrap script
 - [ ] `gitlab/ci/.lfs-runtime.yml` GitLab hidden job (`.tomshley-cicd-lfs-runtime`)
 - [ ] Consumers extend `.tomshley-cicd-lfs-runtime` for build/publish jobs needing LFS content
