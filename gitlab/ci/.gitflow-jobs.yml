@@ -126,20 +126,254 @@ tomshley-cicd-flow-release-start:
         echo "ERROR: Tag ${NEXT_TAG_VERSION} already exists — aborting"
         exit 1
       fi
-      if git branch -r | grep -q 'origin/release/'; then
-        echo "ERROR: An active release branch already exists — aborting"
-        exit 1
-      fi
-      if git rev-parse --verify "origin/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+      if git ls-remote --exit-code origin "refs/heads/release/${NEXT_VERSION}" >/dev/null 2>&1; then
         echo "ERROR: release/${NEXT_VERSION} already exists on remote — aborting"
+        echo "Use 'release-continue' to work on it, 'release-cancel-new' to replace it,"
+        echo "or 'release-start-skip' to skip to the next version"
         exit 1
       fi
-      git checkout -b "release/${NEXT_VERSION}"
+      git checkout -B "release/${NEXT_VERSION}"
 
       echo "${NEXT_VERSION}" > "$VERSION_FILE"
       git add "$VERSION_FILE"
       git commit -m "chore: bump version to ${NEXT_VERSION}"
+      # Recheck both tag and branch immediately before push to prevent TOCTOU race
+      if git rev-parse "refs/tags/${NEXT_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_TAG_VERSION} was created during release start — aborting"
+        exit 1
+      fi
+      if git ls-remote --exit-code origin "refs/heads/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: release/${NEXT_VERSION} was created during release start — aborting"
+        exit 1
+      fi
       git push --set-upstream origin "release/${NEXT_VERSION}"
+#endregion
+
+
+#region Flow: release-continue (checkout existing release branch)
+tomshley-cicd-flow-release-continue:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+      trap 'git checkout develop 2>/dev/null || true' ERR
+
+      git fetch --tags
+      git checkout develop
+      git pull origin develop --rebase --prune
+
+      RELEASE_COUNT=$(git branch -r | grep -c '^[[:space:]]*origin/release/' || echo "0")
+      if [ "$RELEASE_COUNT" -gt 1 ]; then
+        echo "ERROR: Multiple release branches detected — manual cleanup required"
+        git branch -r | grep '^[[:space:]]*origin/release/'
+        exit 1
+      fi
+      EXISTING_RELEASE=$(git branch -r | grep '^[[:space:]]*origin/release/' | head -n1 | sed 's|.*origin/release/||')
+      if [ -z "$EXISTING_RELEASE" ]; then
+        echo "ERROR: No active release branch found"
+        echo "Use 'release-start' to create a new release"
+        exit 1
+      fi
+
+      echo "Found existing release: release/${EXISTING_RELEASE}"
+      git checkout -B "release/${EXISTING_RELEASE}" "origin/release/${EXISTING_RELEASE}"
+      git pull origin "release/${EXISTING_RELEASE}" --ff-only --prune
+      echo "✓ Switched to existing release: release/${EXISTING_RELEASE}"
+#endregion
+
+
+#region Flow: release-cancel-new (delete existing release, create fresh from develop)
+tomshley-cicd-flow-release-cancel-new:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+
+      git fetch --tags
+      git checkout develop
+      git pull origin develop --rebase --prune
+
+      RELEASE_COUNT=$(git branch -r | grep -c '^[[:space:]]*origin/release/' || echo "0")
+      if [ "$RELEASE_COUNT" -gt 1 ]; then
+        echo "ERROR: Multiple release branches detected — manual cleanup required"
+        git branch -r | grep '^[[:space:]]*origin/release/'
+        exit 1
+      fi
+      EXISTING_RELEASE=$(git branch -r | grep '^[[:space:]]*origin/release/' | head -n1 | sed 's|.*origin/release/||')
+      if [ -z "$EXISTING_RELEASE" ]; then
+        echo "ERROR: No active release branch found to cancel"
+        echo "Use 'release-start' to create a new release"
+        exit 1
+      fi
+
+      # Validate version consistency before deletion
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      if ! echo "$CURRENT_VERSION" | grep -qE '^v?[0-9]+(\.[0-9]+)*$'; then
+        echo "ERROR: VERSION content '${CURRENT_VERSION}' is not valid semver — aborting"
+        exit 1
+      fi
+      VERSION_PREFIX=""
+      case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+      NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF++; print}')"
+      NEXT_VERSION_NO_PREFIX="${NEXT_VERSION#v}"
+      NEXT_TAG_VERSION="v${NEXT_VERSION_NO_PREFIX}"
+      EXISTING_VERSION_NO_PREFIX="${EXISTING_RELEASE#v}"
+
+      echo "Existing release: release/${EXISTING_RELEASE}"
+      echo "Current version:  ${CURRENT_VERSION}"
+      echo "Next version:     ${NEXT_VERSION}"
+
+      if [ "${NEXT_VERSION_NO_PREFIX}" != "${EXISTING_VERSION_NO_PREFIX}" ]; then
+        echo "WARN: Version mismatch detected"
+        echo "      Existing release is ${EXISTING_RELEASE}, but develop VERSION suggests ${NEXT_VERSION}"
+        echo "      Proceeding with ${NEXT_VERSION} (develop-based)"
+      fi
+
+      # Validate tag and new branch don't exist BEFORE deleting anything
+      if git rev-parse "refs/tags/${NEXT_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_TAG_VERSION} already exists — aborting"
+        exit 1
+      fi
+      if git ls-remote --exit-code origin "refs/heads/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Branch release/${NEXT_VERSION} already exists — aborting"
+        exit 1
+      fi
+
+      echo "Canceling and replacing release: release/${EXISTING_RELEASE}"
+      if git ls-remote --exit-code origin "refs/heads/release/${EXISTING_RELEASE}" >/dev/null 2>&1; then
+        if git push origin --delete "release/${EXISTING_RELEASE}" 2>/dev/null; then
+          echo "✓ Deleted remote branch: release/${EXISTING_RELEASE}"
+        else
+          echo "WARN: Branch deletion failed (may have been deleted concurrently)"
+        fi
+      else
+        echo "WARN: release/${EXISTING_RELEASE} already deleted — proceeding with new release"
+      fi
+      git checkout -B "release/${NEXT_VERSION}"
+
+      echo "${NEXT_VERSION}" > "$VERSION_FILE"
+      git add "$VERSION_FILE"
+      git commit -m "chore: bump version to ${NEXT_VERSION}"
+      # Recheck tag and branch existence immediately before push to prevent TOCTOU race
+      if git rev-parse "refs/tags/${NEXT_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_TAG_VERSION} was created during branch replacement — aborting"
+        exit 1
+      fi
+      if git ls-remote --exit-code origin "refs/heads/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: release/${NEXT_VERSION} was created during branch replacement — aborting"
+        exit 1
+      fi
+      git push --set-upstream origin "release/${NEXT_VERSION}"
+      echo "✓ Created fresh release: release/${NEXT_VERSION}"
+#endregion
+
+
+#region Flow: release-start-skip (skip existing release, bump to next version)
+tomshley-cicd-flow-release-start-skip:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - |
+      set -e
+      cd "${CI_PROJECT_DIR}"
+
+      VERSION_FILE="${CI_PROJECT_DIR}/VERSION"
+
+      git fetch --tags
+      git checkout develop
+      git pull origin develop --rebase --prune
+
+      RELEASE_COUNT=$(git branch -r | grep -c '^[[:space:]]*origin/release/' || echo "0")
+      if [ "$RELEASE_COUNT" -gt 1 ]; then
+        echo "ERROR: Multiple release branches detected — manual cleanup required"
+        git branch -r | grep '^[[:space:]]*origin/release/'
+        exit 1
+      fi
+      EXISTING_RELEASE=$(git branch -r | grep '^[[:space:]]*origin/release/' | head -n1 | sed 's|.*origin/release/||')
+      if [ -z "$EXISTING_RELEASE" ]; then
+        echo "ERROR: No active release branch exists to skip"
+        echo "Use 'release-start' for normal release flow"
+        exit 1
+      fi
+      echo "Found existing release: release/${EXISTING_RELEASE}"
+      echo "Creating new release that skips this version"
+
+      if [ ! -f "$VERSION_FILE" ]; then
+        echo "ERROR: VERSION file not found at ${VERSION_FILE} — aborting"
+        exit 1
+      fi
+      CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '[:space:]')
+      if ! echo "$CURRENT_VERSION" | grep -qE '^v?[0-9]+(\.[0-9]+)*$'; then
+        echo "ERROR: VERSION content '${CURRENT_VERSION}' is not valid semver — aborting"
+        exit 1
+      fi
+      VERSION_PREFIX=""
+      case "$CURRENT_VERSION" in v*) VERSION_PREFIX="v" ;; esac
+      CLEAN_VERSION="${CURRENT_VERSION#v}"
+      # Increment twice to skip the existing release version
+      NEXT_VERSION="${VERSION_PREFIX}$(echo "$CLEAN_VERSION" | awk 'BEGIN{FS=OFS="."} {$NF+=2; print}')"
+      NEXT_VERSION_NO_PREFIX="${NEXT_VERSION#v}"
+      NEXT_TAG_VERSION="v${NEXT_VERSION_NO_PREFIX}"
+
+      echo "Current version: ${CURRENT_VERSION}"
+      echo "Skipping to:     ${NEXT_VERSION}"
+
+      if git rev-parse "refs/tags/${NEXT_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_TAG_VERSION} already exists — aborting"
+        exit 1
+      fi
+      if git ls-remote --exit-code origin "refs/heads/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: release/${NEXT_VERSION} already exists on remote — aborting"
+        exit 1
+      fi
+      git checkout -B "release/${NEXT_VERSION}"
+
+      echo "${NEXT_VERSION}" > "$VERSION_FILE"
+      git add "$VERSION_FILE"
+      git commit -m "chore: bump version to ${NEXT_VERSION} (skip release)"
+      # Recheck tag and branch existence immediately before push to prevent TOCTOU race
+      if git rev-parse "refs/tags/${NEXT_TAG_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: Tag ${NEXT_TAG_VERSION} was created during skip operation — aborting"
+        exit 1
+      fi
+      if git ls-remote --exit-code origin "refs/heads/release/${NEXT_VERSION}" >/dev/null 2>&1; then
+        echo "ERROR: release/${NEXT_VERSION} was created during skip operation — aborting"
+        exit 1
+      fi
+      git push --set-upstream origin "release/${NEXT_VERSION}"
+      echo "✓ Created skip release: release/${NEXT_VERSION}"
 #endregion
 
 
@@ -227,7 +461,7 @@ tomshley-cicd-flow-release-finish:
       else
         echo "WARN: Remote branch ${RELEASE_BRANCH} already deleted — skipping deletion refspec"
       fi
-      echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
+      echo "Pushing changes to remote (atomic: all refs push together or none)"
       git push --atomic origin ${PUSH_REFS}
       unset GIT_MERGE_AUTOEDIT
 #endregion
@@ -335,7 +569,7 @@ tomshley-cicd-flow-hotfix-finish:
       else
         echo "WARN: Remote branch ${HOTFIX_BRANCH} already deleted — skipping deletion refspec"
       fi
-      echo "Pushing changes to remote (if this fails partway, check main/develop/tags state manually)"
+      echo "Pushing changes to remote (atomic: all refs push together or none)"
       git push --atomic origin ${PUSH_REFS}
       unset GIT_MERGE_AUTOEDIT
 #endregion
