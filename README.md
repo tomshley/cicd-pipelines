@@ -51,11 +51,21 @@ In your project's `.gitlab-ci.yml`:
 
 Including `.gitflow-jobs.yml` gives your project automated gitflow lifecycle management:
 
+### Release Jobs
+
+| Job | Stage | Trigger | Action | When to Use |
+|---|---|---|---|---|
+| `tomshley-cicd-flow-release-start` | `.post` | Manual on `develop` | Increments VERSION by 1, creates `release/*` branch | **Normal release flow** — no release branch exists |
+| `tomshley-cicd-flow-release-continue` | `.post` | Manual on `develop` | Checks out existing `release/*` branch | **Resume work** on existing release |
+| `tomshley-cicd-flow-release-cancel-new` | `.post` | Manual on `develop` | Deletes existing `release/*`, creates fresh from develop | **Abandon and replace** current release (destructive) |
+| `tomshley-cicd-flow-release-start-skip` | `.post` | Manual on `develop` | Increments VERSION by 2, creates new `release/*` | **Skip version** — leave old release untouched, create next |
+| `tomshley-cicd-flow-release-publish` | `deploy` | Manual on `release/*` | No-op extension point (override to publish RCs) | Override to add RC publishing logic |
+| `tomshley-cicd-flow-release-finish` | `.post` | Manual on `release/*` | Merges to main + develop, tags, deletes branch | Complete the release |
+
+### Hotfix Jobs
+
 | Job | Stage | Trigger | Action |
 |---|---|---|---|
-| `tomshley-cicd-flow-release-start` | `.post` | Manual on `develop` | Creates `release/*` branch, bumps VERSION |
-| `tomshley-cicd-flow-release-publish` | `deploy` | Manual on `release/*` | No-op extension point (override to publish RCs) |
-| `tomshley-cicd-flow-release-finish` | `.post` | Manual on `release/*` | Merges to main + develop, tags, deletes branch |
 | `tomshley-cicd-flow-hotfix-publish` | `deploy` | Manual on `hotfix/*` | No-op extension point (override to publish hotfix artifacts) |
 | `tomshley-cicd-flow-hotfix-finish` | `.post` | Manual on `hotfix/*` | Bumps VERSION, merges to main + develop, tags, deletes branch |
 
