@@ -2,20 +2,12 @@
 #
 # Licensed under the Apache License, Version 2.0
 
-# NOTE: .before-sbt-artifact-tags inlines ALL bootstrap commands (runtime,
-# debug, VERSION read, artifact tags) as a flat string array. This prevents
-# nested array depth from exceeding GitLab's 10-level limit when consumers
-# extend .sbt-publish. Consumers should extend .sbt-publish (not
-# .tomshley-sbt-runtime) for publish jobs.
-
-.before-sbt-artifact-tags:
+.sbt-publish:
+  extends:
+    - .tomshley-sbt-runtime
   before_script:
-    - |
-      echo "=== SBT Runtime Bootstrap ==="
-    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
-    - |
-      CICD_EXPORTS="/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh"
-      if [ -f "$CICD_EXPORTS" ]; then source "$CICD_EXPORTS"; fi
+    - !reference [.tomshley-sbt-runtime, before_script]
+    - !reference [.before-artifact-tags, before_script]
     - |
       echo "=== CI/CD Git Flow ==="
       echo "Pipeline Source : ${CI_PIPELINE_SOURCE}"
@@ -23,43 +15,21 @@
       echo "MR Source Branch: ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-N/A}"
       echo "Tag             : ${CI_COMMIT_TAG:-N/A}"
       echo "Flow Type       : ${TOMSHLEY_CICD_FLOW_TYPE}"
-      echo "Build Revision  : ${TOMSHLEY_CICD_BUILD_REVISION}"
-    - export TOMSHLEY_CICD_BUILD_VERSION="$(cat ${CI_PROJECT_DIR}/VERSION 2>/dev/null || echo 'dev')"
-    - echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"
+    # Override TOMSHLEY_CICD_BUILD_REVISION with unified pinnable tag (ref-slug format).
+    # For tags: CICD_PUBLISH_PINNABLE_TAG is empty → revision stays empty → clean version.
+    # For branches: CICD_PUBLISH_PINNABLE_TAG is {ref-slug}-{sha} → e.g. develop-abc1234.
+    # Plugin composes: magicRootBaseVersion + "-" + TOMSHLEY_CICD_BUILD_REVISION
     - |
-      set -e
-
-      if [ -n "$CI_COMMIT_TAG" ]; then
-        # ------------------------------------------------------------
-        # Tag (release) pipeline — clean version, single publish
-        # ------------------------------------------------------------
-        export SBT_PUBLISH_PINNABLE="true"
-        export SBT_PUBLISH_ROLLING="false"
-      else
-        # ------------------------------------------------------------
-        # Branch / MR pipeline — two publishes
-        # ------------------------------------------------------------
-        export SBT_PUBLISH_PINNABLE="true"
-        export SBT_PUBLISH_ROLLING="true"
-        export TOMSHLEY_CICD_BUILD_REVISION_ROLLING="${TOMSHLEY_CICD_FLOW_TYPE}"
+      if [ -n "$CICD_PUBLISH_PINNABLE_TAG" ]; then
+        export TOMSHLEY_CICD_BUILD_REVISION="$CICD_PUBLISH_PINNABLE_TAG"
       fi
-
-      echo "SBT artifact tags resolved:"
-      echo "  TOMSHLEY_CICD_BUILD_REVISION         = $TOMSHLEY_CICD_BUILD_REVISION"
-      echo "  TOMSHLEY_CICD_BUILD_REVISION_ROLLING = ${TOMSHLEY_CICD_BUILD_REVISION_ROLLING:-N/A}"
-      echo "  SBT_PUBLISH_PINNABLE                 = $SBT_PUBLISH_PINNABLE"
-      echo "  SBT_PUBLISH_ROLLING                  = $SBT_PUBLISH_ROLLING"
-
-.sbt-publish:
-  extends:
-    - .tomshley-sbt-runtime
-    - .before-sbt-artifact-tags
+      echo "Build Revision  : ${TOMSHLEY_CICD_BUILD_REVISION}"
   script:
-    # Pinnable publish: e.g. 1.4.1-develop-abc1234
+    # Pinnable publish: e.g. 0.2.1-develop-abc1234 (branch) or 0.2.1 (tag)
     - sbt publish
     - |
-      if [ "$SBT_PUBLISH_ROLLING" = "true" ]; then
-        # Rolling publish: e.g. 1.4.1-develop
-        export TOMSHLEY_CICD_BUILD_REVISION="$TOMSHLEY_CICD_BUILD_REVISION_ROLLING"
+      if [ "$CICD_PUBLISH_ROLLING" = "true" ]; then
+        # Rolling publish: e.g. 0.2.1-develop (just ref-slug, no -latest for JVM)
+        export TOMSHLEY_CICD_BUILD_REVISION="$CI_COMMIT_REF_SLUG"
         sbt publish
       fi

@@ -2,26 +2,21 @@
 #
 # Licensed under the Apache License, Version 2.0
 
+# Container-specific tag aliases.
+# Delegates to .before-artifact-tags for policy + format,
+# then aliases the unified variables for backward compatibility.
+
 .before-container-tags:
   before_script:
+    - !reference [.before-artifact-tags, before_script]
     - |
-      set -e
-
+      # Backward-compatible aliases for container consumers
       if [ -n "$CI_COMMIT_TAG" ]; then
-        # ------------------------------------------------------------
-        # Tag (release) pipeline
-        # ------------------------------------------------------------
         export BASE_CONTAINERS_TAG="${CI_COMMIT_TAG#v}"
-        export BASE_CONTAINERS_TAG_LATEST="latest"
       else
-        # ------------------------------------------------------------
-        # Branch / MR pipeline
-        # ------------------------------------------------------------
-        REF_NAME="$CI_COMMIT_REF_SLUG"
-
-        export BASE_CONTAINERS_TAG="${REF_NAME}-${CI_COMMIT_SHORT_SHA}"
-        export BASE_CONTAINERS_TAG_LATEST="${REF_NAME}-latest"
+        export BASE_CONTAINERS_TAG="$CICD_PUBLISH_PINNABLE_TAG"
       fi
+      export BASE_CONTAINERS_TAG_LATEST="$CICD_PUBLISH_ROLLING_TAG"
 
       echo "Container tags resolved:"
       echo "  BASE_CONTAINERS_TAG        = $BASE_CONTAINERS_TAG"

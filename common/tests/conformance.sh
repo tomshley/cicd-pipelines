@@ -140,7 +140,7 @@ for platform in gitlab bitbucket github jenkins; do
   echo "--- $platform: $status ---"
 
   # Methodology templates
-  for tmpl in stages-base gitflow-base gitflow-branch-policy gitflow-jobs container-tags artifact-publish-policy security-scanning; do
+  for tmpl in stages-base gitflow-base gitflow-branch-policy gitflow-jobs artifact-tags container-tags artifact-publish-policy security-scanning; do
     check_template "$platform" "$tmpl" "$status" || true
   done
 
@@ -171,6 +171,16 @@ for platform in gitlab bitbucket github jenkins; do
     check_jobs "$gitflow_file" "$status" \
       ".tomshley-cicd-debug" \
       ".tomshley-cicd-bootstrap"
+  fi
+
+  # Check required variables in artifact-tags
+  atags_file="$REPO_ROOT/${platform}/ci/.artifact-tags.yml"
+  if [ -f "$atags_file" ]; then
+    check_variables "$atags_file" "$status" \
+      "CICD_PUBLISH_PINNABLE" \
+      "CICD_PUBLISH_ROLLING" \
+      "CICD_PUBLISH_PINNABLE_TAG" \
+      "CICD_PUBLISH_ROLLING_TAG"
   fi
 
   # Check required variables in container-tags
