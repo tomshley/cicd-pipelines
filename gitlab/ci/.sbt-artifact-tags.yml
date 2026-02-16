@@ -2,13 +2,20 @@
 #
 # Licensed under the Apache License, Version 2.0
 
-# NOTE: .before-sbt-artifact-tags inlines debug+bootstrap commands instead of
-# using !reference [.tomshley-cicd-bootstrap, before_script] to prevent nested
-# array depth from exceeding GitLab's 10-level limit when consumers add their
-# own !reference [.sbt-publish, before_script] directives.
+# NOTE: .before-sbt-artifact-tags inlines ALL bootstrap commands (runtime,
+# debug, VERSION read, artifact tags) as a flat string array. This prevents
+# nested array depth from exceeding GitLab's 10-level limit when consumers
+# extend .sbt-publish. Consumers should extend .sbt-publish (not
+# .tomshley-sbt-runtime) for publish jobs.
 
 .before-sbt-artifact-tags:
   before_script:
+    - |
+      echo "=== SBT Runtime Bootstrap ==="
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash || true
+    - |
+      CICD_EXPORTS="/opt/tomshley/provisioning/tools/cicd/gitlab/scripts/bin/cicd-bootstrap-envvars-gitlab.sh"
+      if [ -f "$CICD_EXPORTS" ]; then source "$CICD_EXPORTS"; fi
     - |
       echo "=== CI/CD Git Flow ==="
       echo "Pipeline Source : ${CI_PIPELINE_SOURCE}"
@@ -45,6 +52,7 @@
 
 .sbt-publish:
   extends:
+    - .tomshley-sbt-runtime
     - .before-sbt-artifact-tags
   script:
     # Pinnable publish: e.g. 1.4.1-develop-abc1234
