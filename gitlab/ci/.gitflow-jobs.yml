@@ -187,7 +187,11 @@ tomshley-cicd-flow-release-continue:
       echo "Found existing release: release/${EXISTING_RELEASE}"
       git checkout -B "release/${EXISTING_RELEASE}" "origin/release/${EXISTING_RELEASE}"
       git pull origin "release/${EXISTING_RELEASE}" --ff-only --prune
-      echo "✓ Switched to existing release: release/${EXISTING_RELEASE}"
+
+      echo "Merging develop into release/${EXISTING_RELEASE}..."
+      git merge develop -m "chore: merge develop into release/${EXISTING_RELEASE}"
+      git push origin "release/${EXISTING_RELEASE}"
+      echo "✓ Merged develop and pushed release/${EXISTING_RELEASE}"
 #endregion
 
 
