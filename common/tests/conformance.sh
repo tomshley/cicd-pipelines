@@ -140,7 +140,7 @@ for platform in gitlab bitbucket github jenkins; do
   echo "--- $platform: $status ---"
 
   # Methodology templates
-  for tmpl in stages-base gitflow-base gitflow-branch-policy gitflow-jobs artifact-tags container-tags artifact-publish-policy security-scanning; do
+  for tmpl in stages-base gitflow-base gitflow-branch-policy gitflow-jobs artifact-tags mirror-push container-tags artifact-publish-policy security-scanning; do
     check_template "$platform" "$tmpl" "$status" || true
   done
 
@@ -189,6 +189,14 @@ for platform in gitlab bitbucket github jenkins; do
     check_variables "$ctags_file" "$status" \
       "BASE_CONTAINERS_TAG" \
       "BASE_CONTAINERS_TAG_LATEST"
+  fi
+
+  # Check required mirror-push jobs
+  mirror_file="$REPO_ROOT/${platform}/ci/.mirror-push.yml"
+  if [ -f "$mirror_file" ]; then
+    check_jobs "$mirror_file" "$status" \
+      ".tomshley-cicd-mirror-config" \
+      "tomshley-cicd-mirror-sync"
   fi
 
   echo ""
