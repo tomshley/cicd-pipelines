@@ -10,6 +10,7 @@ include:
   - local: gitlab/ci/.gitflow-base.yml
   - local: gitlab/ci/.gitflow-branch-policy.yml
   - local: gitlab/ci/.gitflow-jobs.yml
+  - local: gitlab/ci/.artifact-tags.yml
   - local: gitlab/ci/.container-tags.yml
   - local: gitlab/ci/.artifact-publish-policy.yml
   - local: gitlab/ci/.security-scanning.yml
@@ -68,14 +69,14 @@ conformance:
     - source "${CI_PROJECT_DIR}/PINNED_PIPELINE_VERSIONS"
     - set +a
 
-    # Tag computation
+    # Tag computation — derived from unified artifact tags
     - |
-      export TAG="${TOMSHLEY_CICD_BUILD_REVISION:-${CI_COMMIT_SHORT_SHA}}"
-      export TAG_LATEST="${CI_COMMIT_REF_SLUG}-latest"
       if [ -n "$CI_COMMIT_TAG" ]; then
         export TAG="${CI_COMMIT_TAG#v}"
-        export TAG_LATEST="latest"
+      else
+        export TAG="$CICD_PUBLISH_PINNABLE_TAG"
       fi
+      export TAG_LATEST="$CICD_PUBLISH_ROLLING_TAG"
 
     # Docker login (CI credentials are authoritative)
     - |
