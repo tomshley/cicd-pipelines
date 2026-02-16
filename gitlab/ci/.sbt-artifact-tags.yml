@@ -30,8 +30,14 @@
 
 .sbt-publish:
   extends:
-    - .tomshley-cicd-bootstrap
+    - .tomshley-sbt-runtime
     - .before-sbt-artifact-tags
+  before_script:
+    - !reference [.tomshley-sbt-runtime, before_script]
+    - !reference [.tomshley-cicd-debug, before_script]
+    - export TOMSHLEY_CICD_BUILD_VERSION="$(cat ${CI_PROJECT_DIR}/VERSION 2>/dev/null || echo 'dev')"
+    - echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"
+    - !reference [.before-sbt-artifact-tags, before_script]
   script:
     # Pinnable publish: e.g. 1.4.1-develop-abc1234
     - sbt publish
