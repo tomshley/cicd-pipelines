@@ -21,6 +21,13 @@ templates:
       spec: flow-types.yml
     - name: gitflow-jobs
       spec: flow-jobs.yml
+    - name: artifact-tags
+      spec: artifact-tags.yml
+      required_variables:
+        - CICD_PUBLISH_PINNABLE
+        - CICD_PUBLISH_ROLLING
+        - CICD_PUBLISH_PINNABLE_TAG
+        - CICD_PUBLISH_ROLLING_TAG
     - name: container-tags
       spec: container-tags.yml
       required_variables:
