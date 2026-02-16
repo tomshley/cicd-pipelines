@@ -4,6 +4,7 @@
 
 .before-sbt-artifact-tags:
   before_script:
+    - !reference [.tomshley-cicd-bootstrap, before_script]
     - |
       set -e
 
@@ -30,7 +31,6 @@
 
 .sbt-publish:
   extends:
-    - .tomshley-cicd-bootstrap
     - .before-sbt-artifact-tags
   script:
     # Pinnable publish: e.g. 1.4.1-develop-abc1234
