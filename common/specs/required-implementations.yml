@@ -37,6 +37,10 @@ templates:
       spec: publish-policy.yml
     - name: security-scanning
       spec: security-scanning.yml
+    - name: mirror-push
+      spec: mirror-push.yml
+      required_jobs:
+        gitlab: [.tomshley-cicd-mirror-config, tomshley-cicd-mirror-sync]
   runtimes:
     - name: docker-runtime
       spec: runtimes.yml

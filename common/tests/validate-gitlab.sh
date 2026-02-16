@@ -45,6 +45,34 @@ else
   log_ok "No BREAKGROUND references in gitlab/ci/"
 fi
 
+# Check mirror-push template
+if [ -f "$GL_CI/.mirror-push.yml" ]; then
+  if grep -q "\.tomshley-cicd-mirror-config:" "$GL_CI/.mirror-push.yml"; then
+    log_ok ".tomshley-cicd-mirror-config defined in .mirror-push.yml"
+  else
+    log_error ".tomshley-cicd-mirror-config MISSING from .mirror-push.yml"
+  fi
+  if grep -q "tomshley-cicd-mirror-sync:" "$GL_CI/.mirror-push.yml"; then
+    log_ok "tomshley-cicd-mirror-sync defined in .mirror-push.yml"
+  else
+    log_error "tomshley-cicd-mirror-sync MISSING from .mirror-push.yml"
+  fi
+  # Check core variable (MIRROR_URL) is defined in template
+  if grep -q "TOMSHLEY_CICD_MIRROR_URL" "$GL_CI/.mirror-push.yml"; then
+    log_ok "  TOMSHLEY_CICD_MIRROR_URL found in .mirror-push.yml"
+  else
+    log_error "  TOMSHLEY_CICD_MIRROR_URL NOT FOUND in .mirror-push.yml"
+  fi
+  # Check optional variables have defaults defined
+  for var in TOMSHLEY_CICD_MIRROR_BRANCHES TOMSHLEY_CICD_MIRROR_BRANCH_MAP TOMSHLEY_CICD_MIRROR_TAGS TOMSHLEY_CICD_MIRROR_FORCE_PUSH TOMSHLEY_CICD_MIRROR_SSH_KEY; do
+    if grep -q "$var" "$GL_CI/.mirror-push.yml"; then
+      log_ok "  $var found in .mirror-push.yml"
+    else
+      log_error "  $var NOT FOUND in .mirror-push.yml"
+    fi
+  done
+fi
+
 echo ""
 echo "Errors: $ERRORS"
 [ "$ERRORS" -eq 0 ] && echo "PASSED" || { echo "FAILED"; exit 1; }

@@ -1,0 +1,45 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+
+# Mirror push spec.
+# Defines the contract for mirroring git refs to a secondary remote.
+# Consumers opt in by including the platform template and setting variables.
+
+variables:
+  - name: TOMSHLEY_CICD_MIRROR_URL
+    required: false
+    default: ""
+    description: "Remote URL for the mirror (SSH or HTTPS). Leave empty to disable mirroring."
+    example: "git@bitbucket.org:org/repo.git"
+  - name: TOMSHLEY_CICD_MIRROR_BRANCHES
+    required: false
+    default: "main"
+    description: "Comma-separated list of branches to mirror"
+    example: "main,develop"
+  - name: TOMSHLEY_CICD_MIRROR_TAGS
+    required: false
+    default: "true"
+    description: "Mirror tags (true/false)"
+  - name: TOMSHLEY_CICD_MIRROR_FORCE_PUSH
+    required: false
+    default: "true"
+    description: "Use --force instead of --force-with-lease (true/false)"
+  - name: TOMSHLEY_CICD_MIRROR_SSH_KEY
+    required: false
+    description: "Path to SSH private key in .secure_files/ for mirror auth"
+    example: ".secure_files/mirror_deploy_key"
+
+required_jobs:
+  gitlab:
+    - .tomshley-cicd-mirror-config
+    - tomshley-cicd-mirror-sync
+  bitbucket: []
+  github: []
+
+behavior:
+  - "Job is a safe no-op if TOMSHLEY_CICD_MIRROR_URL is empty or unset"
+  - "Pushes only the branches listed in TOMSHLEY_CICD_MIRROR_BRANCHES"
+  - "Pushes tags if TOMSHLEY_CICD_MIRROR_TAGS is true and trigger is a tag pipeline"
+  - "Runs automatically (not manual) on matching branch/tag pushes"
+  - "Credentials sourced from .secure_files/.env (same pattern as gitflow-jobs)"
