@@ -59,6 +59,28 @@ templates:
       spec: runtimes.yml
       status: future
 
+adapters:
+  - name: sbt-version-keys
+    file: "common/adapter-specs/sbt/CIBuildVersionKeys.scala"
+    description: "SBT version composition reference implementation"
+    required_env_vars:
+      - TOMSHLEY_CICD_BUILD_REVISION
+  - name: node-sync-version
+    file: "common/adapter-specs/node/sync-version.js"
+    description: "Node.js version composition reference implementation"
+    required_env_vars:
+      - TOMSHLEY_CICD_BUILD_REVISION
+  - name: python-version-resolver
+    file: "common/adapter-specs/python/version_resolver.py"
+    description: "Python version composition reference implementation"
+    required_env_vars:
+      - TOMSHLEY_CICD_BUILD_REVISION
+  - name: make-version-tags
+    file: "common/adapter-specs/make/version-tags.mk"
+    description: "Makefile version composition reference implementation"
+    required_env_vars:
+      - TOMSHLEY_CICD_BUILD_REVISION
+
 pipelines:
   - name: sbt-docker
     purpose: "SBT compile/test + Docker build/push"
