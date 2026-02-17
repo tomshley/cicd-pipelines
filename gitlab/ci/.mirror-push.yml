@@ -101,6 +101,8 @@
       # Add mirror remote (safe no-op if URL is empty — job script checks first)
       if [ -n "${TOMSHLEY_CICD_MIRROR_URL:-}" ]; then
         git remote add mirror "${TOMSHLEY_CICD_MIRROR_URL}" 2>/dev/null || git remote set-url mirror "${TOMSHLEY_CICD_MIRROR_URL}"
+        # Fetch from mirror to update refs and avoid "stale info" errors
+        git fetch mirror --prune --prune-tags 2>/dev/null || true
       fi
 #endregion
 
