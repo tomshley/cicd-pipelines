@@ -7,8 +7,6 @@ FROM --platform=$BUILDPLATFORM entry_sbt_docker_build_ref AS sbt
 FROM --platform=$BUILDPLATFORM entry_allure_2_30_0_docker_build_ref AS allure
 FROM --platform=$BUILDPLATFORM os_docker_build_ref
 
-ENV PYTHONUNBUFFERED=1
-
 ARG BINARIES_PREFIX="/opt"
 
 COPY --from=docker-tools /usr/local/bin/docker /usr/local/bin/docker
@@ -44,11 +42,10 @@ RUN apk update && \
       gcompat \
       git-flow \
       git-lfs \
-      git \
-      python3 && \
+      git && \
     rm -rf /var/cache/* && \
     mkdir /var/cache/apk -p && \
-    ln -sf python3 /usr/bin/python && \
     ln -sf /etc/ssl/certs/java/cacerts ${JAVA_HOME}/lib/security/cacerts
 
 WORKDIR /
+ENTRYPOINT []
