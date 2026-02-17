@@ -164,7 +164,7 @@ tomshley-cicd-mirror-sync:
             fi
             if [ "$src" = "${CI_COMMIT_BRANCH}" ]; then
               echo "Pushing branch: ${src} → ${dst} (${PUSH_FLAGS})"
-              git push mirror "refs/heads/${src}:refs/heads/${dst}" ${PUSH_FLAGS} 2>&1 || {
+              git push mirror "refs/remotes/origin/${src}:refs/heads/${dst}" ${PUSH_FLAGS} 2>&1 || {
                 echo "ERROR: Failed to push branch ${src} → ${dst} to mirror"
                 exit 1
               }
@@ -183,7 +183,7 @@ tomshley-cicd-mirror-sync:
             branch=$(echo "$branch" | tr -d '[:space:]')
             if [ "$branch" = "${CI_COMMIT_BRANCH}" ]; then
               echo "Pushing branch: ${branch} (${PUSH_FLAGS})"
-              git push mirror "refs/heads/${branch}:refs/heads/${branch}" ${PUSH_FLAGS} 2>&1 || {
+              git push mirror "refs/remotes/origin/${branch}:refs/heads/${branch}" ${PUSH_FLAGS} 2>&1 || {
                 echo "ERROR: Failed to push branch ${branch} to mirror"
                 exit 1
               }
@@ -198,13 +198,26 @@ tomshley-cicd-mirror-sync:
       fi
 
       # Push tags
-      if [ -n "${CI_COMMIT_TAG:-}" ] && [ "${TOMSHLEY_CICD_MIRROR_TAGS}" = "true" ]; then
-        echo "Pushing tag: ${CI_COMMIT_TAG} (${PUSH_FLAGS})"
-        git push mirror "refs/tags/${CI_COMMIT_TAG}:refs/tags/${CI_COMMIT_TAG}" ${PUSH_FLAGS} 2>&1 || {
-          echo "ERROR: Failed to push tag ${CI_COMMIT_TAG} to mirror"
-          exit 1
-        }
-        PUSHED=$((PUSHED + 1))
+      if [ "${TOMSHLEY_CICD_MIRROR_TAGS}" = "true" ]; then
+        if [ -n "${CI_COMMIT_TAG:-}" ]; then
+          # Tag pipeline: push only this tag
+          echo "Pushing tag: ${CI_COMMIT_TAG} (${PUSH_FLAGS})"
+          git push mirror "refs/tags/${CI_COMMIT_TAG}:refs/tags/${CI_COMMIT_TAG}" ${PUSH_FLAGS} 2>&1 || {
+            echo "ERROR: Failed to push tag ${CI_COMMIT_TAG} to mirror"
+            exit 1
+          }
+          PUSHED=$((PUSHED + 1))
+        elif [ -n "${CI_COMMIT_BRANCH:-}" ]; then
+          # Branch pipeline: push all tags
+          echo "Pushing all tags (${PUSH_FLAGS})"
+          git push mirror --tags ${PUSH_FLAGS} 2>&1 || {
+            echo "ERROR: Failed to push tags to mirror"
+            exit 1
+          }
+          # Count tags pushed (approximate)
+          TAG_COUNT=$(git tag --list | wc -l)
+          PUSHED=$((PUSHED + TAG_COUNT))
+        fi
       fi
 
       if [ "$PUSHED" -gt 0 ]; then
