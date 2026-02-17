@@ -5,6 +5,8 @@
 # Acceptance test runtime (future — placeholder)
 # Will use a dedicated 'acceptance' runner image with Python 3 + Node.js + pip + npm.
 # For now, consumers can use a stock python:3 or node:20 image.
+#
+# TODO: Replace python:3.12-alpine with base-containers/base-python-3_12-alpine once created
 
 .tomshley-acceptance-runtime:
   image: python:3.12-alpine

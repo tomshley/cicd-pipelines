@@ -41,10 +41,12 @@
 
 #region Mirror Push Configuration
 .tomshley-cicd-mirror-config:
-  image: alpine:3.19
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
   tags:
     - saas-linux-small-amd64
   variables:
+    BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
+    BASE_CONTAINERS_UPSTREAM_TAG: "0.4.1"
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
     TOMSHLEY_CICD_MIRROR_URL: ""
@@ -142,9 +144,12 @@ tomshley-cicd-mirror-sync:
       echo "Force push:   ${TOMSHLEY_CICD_MIRROR_FORCE_PUSH}"
 
       # Determine push flags
-      PUSH_FLAGS="--force"
-      if [ "${TOMSHLEY_CICD_MIRROR_FORCE_PUSH}" = "false" ]; then
-        PUSH_FLAGS="--force-with-lease"
+      # --force: overwrite mirror unconditionally (GitLab is source of truth)
+      # (empty): regular fast-forward push (safe default)
+      if [ "${TOMSHLEY_CICD_MIRROR_FORCE_PUSH}" = "true" ]; then
+        PUSH_FLAGS="--force"
+      else
+        PUSH_FLAGS=""
       fi
 
       # Fetch latest refs from origin
