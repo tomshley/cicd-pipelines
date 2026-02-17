@@ -31,7 +31,7 @@ variable "BASE_CONTAINERS_UPSTREAM_TAG" {
 # ---------------------------------------------------------------------------
 
 group "default" {
-  targets = ["runner-sbtdockertofu", "runner-sbtrustdockertofu"]
+  targets = ["runner-sbtdockertofu", "runner-sbtrustdockertofu", "runner-sbtallure"]
 }
 
 # ---------------------------------------------------------------------------
@@ -69,6 +69,23 @@ target "runner-sbtrustdockertofu" {
   tags = [
     "${REGISTRY}/cicd-gitlab-runner-sbtrustdockertofu:${TAG}",
     "${REGISTRY}/cicd-gitlab-runner-sbtrustdockertofu:${TAG_LATEST}"
+  ]
+  platforms = ["linux/amd64"]
+}
+
+target "runner-sbtallure" {
+  context    = "runners/sbtallure"
+  dockerfile = "Dockerfile"
+  contexts = {
+    os_docker_build_ref                          = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    lang_java_jdk_docker_build_ref               = "docker-image://${BASE_CONTAINERS_REGISTRY}/foundation-runtime-java-21-jdk-openjdk-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_docker_cli_buildx_docker_build_ref     = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-docker-cli-buildx-29-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_sbt_docker_build_ref                   = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-sbt-1_12-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_allure_2_30_0_docker_build_ref         = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-allure-2_30_0-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+  }
+  tags = [
+    "${REGISTRY}/cicd-gitlab-runner-sbtallure:${TAG}",
+    "${REGISTRY}/cicd-gitlab-runner-sbtallure:${TAG_LATEST}"
   ]
   platforms = ["linux/amd64"]
 }
