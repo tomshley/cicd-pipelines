@@ -4,6 +4,8 @@
 
 # Documentation build runtime (future — placeholder)
 # Supports Docusaurus builds and git mirror to Bitbucket.
+#
+# TODO: Replace node:20-alpine with base-containers/base-node-20-alpine once created
 
 .tomshley-docs-runtime:
   image: node:20-alpine

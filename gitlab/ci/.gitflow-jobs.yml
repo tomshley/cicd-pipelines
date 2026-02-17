@@ -36,10 +36,12 @@
 
 #region Git Push Configuration
 .tomshley-cicd-git-push-config:
-  image: alpine:3.19
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
   tags:
     - saas-linux-small-amd64
   variables:
+    BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
+    BASE_CONTAINERS_UPSTREAM_TAG: "0.4.1"
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
     TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX: "Tomshley CI Pipeline"
@@ -392,7 +394,7 @@ tomshley-cicd-flow-release-start-skip:
 #       - echo "custom publish logic here"
 tomshley-cicd-flow-release-publish:
   stage: deploy
-  image: alpine:3.19
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
@@ -482,7 +484,7 @@ tomshley-cicd-flow-release-finish:
 #       - echo "custom publish logic here"
 tomshley-cicd-flow-hotfix-publish:
   stage: deploy
-  image: alpine:3.19
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
