@@ -101,6 +101,8 @@
       # Add mirror remote (safe no-op if URL is empty — job script checks first)
       if [ -n "${TOMSHLEY_CICD_MIRROR_URL:-}" ]; then
         git remote add mirror "${TOMSHLEY_CICD_MIRROR_URL}" 2>/dev/null || git remote set-url mirror "${TOMSHLEY_CICD_MIRROR_URL}"
+        # Fetch from mirror to update refs and avoid "stale info" errors
+        git fetch mirror --prune --prune-tags 2>/dev/null || true
       fi
 #endregion
 
@@ -145,7 +147,14 @@ tomshley-cicd-mirror-sync:
         PUSH_FLAGS="--force-with-lease"
       fi
 
-      git fetch --tags origin
+      # Fetch latest refs from origin
+      # --prune-tags only on branch pipelines; on tag pipelines the current
+      # tag may not yet exist on the remote and would be deleted locally.
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        git fetch --prune origin
+      else
+        git fetch --prune --prune-tags origin
+      fi
 
       PUSHED=0
 
@@ -164,6 +173,8 @@ tomshley-cicd-mirror-sync:
             fi
             if [ "$src" = "${CI_COMMIT_BRANCH}" ]; then
               echo "Pushing branch: ${src} → ${dst} (${PUSH_FLAGS})"
+              # Ensure remote tracking ref exists before pushing
+              git fetch origin "${src}:${src}" 2>/dev/null || true
               git push mirror "refs/remotes/origin/${src}:refs/heads/${dst}" ${PUSH_FLAGS} 2>&1 || {
                 echo "ERROR: Failed to push branch ${src} → ${dst} to mirror"
                 exit 1
@@ -183,6 +194,8 @@ tomshley-cicd-mirror-sync:
             branch=$(echo "$branch" | tr -d '[:space:]')
             if [ "$branch" = "${CI_COMMIT_BRANCH}" ]; then
               echo "Pushing branch: ${branch} (${PUSH_FLAGS})"
+              # Ensure remote tracking ref exists before pushing
+              git fetch origin "${branch}:${branch}" 2>/dev/null || true
               git push mirror "refs/remotes/origin/${branch}:refs/heads/${branch}" ${PUSH_FLAGS} 2>&1 || {
                 echo "ERROR: Failed to push branch ${branch} to mirror"
                 exit 1
@@ -214,9 +227,8 @@ tomshley-cicd-mirror-sync:
             echo "ERROR: Failed to push tags to mirror"
             exit 1
           }
-          # Count tags pushed (approximate)
-          TAG_COUNT=$(git tag --list | wc -l)
-          PUSHED=$((PUSHED + TAG_COUNT))
+          # Just increment by 1 to indicate tags were synced
+          PUSHED=$((PUSHED + 1))
         fi
       fi
 
