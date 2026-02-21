@@ -36,8 +36,8 @@ ENV PATH="/root/.cargo/bin:${BINARIES_PREFIX}/rust/bin:${BINARIES_PREFIX}/zig:${
 # Rustup installs a distributable 1.83.0 toolchain to /root/.cargo so it
 # can manage cross-compilation targets (linked toolchains can't do this).
 # The vendored /opt/rust stays intact as a fallback on PATH.
-# NOTE: cargo-zigbuild version is resolved at image build time and frozen
-# in the tagged image — no need to pin; same as the apk packages below.
+# NOTE: cargo-zigbuild pinned to 0.20.1 (compatible with Rust 1.83.0).
+# Version 0.22.1+ requires Rust 1.88 which doesn't exist yet.
 RUN set -eux; \
     apk update; \
     apk upgrade; \
@@ -67,7 +67,7 @@ RUN set -eux; \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --no-modify-path --default-toolchain 1.83.0; \
     rustup target add aarch64-apple-darwin x86_64-apple-darwin; \
-    cargo install cargo-zigbuild; \
+    cargo install cargo-zigbuild@0.20.1; \
     rm -rf /tmp/* /root/.rustup/tmp
 
 WORKDIR /
