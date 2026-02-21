@@ -67,7 +67,7 @@ RUN set -eux; \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --no-modify-path --default-toolchain 1.83.0; \
     rustup target add aarch64-apple-darwin x86_64-apple-darwin; \
-    cargo install cargo-zigbuild@0.20.1; \
+    cargo install cargo-zigbuild@0.20.1 --locked; \
     rm -rf /tmp/* /root/.rustup/tmp
 
 WORKDIR /
