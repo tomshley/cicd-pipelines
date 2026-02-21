@@ -65,6 +65,7 @@ target "runner-sbtrustdockertofu" {
     entry_sbt_docker_build_ref                   = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-sbt-1_12-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
     entry_opentofu_docker_build_ref              = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-opentofu-1_11-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
     entry_rust_docker_build_ref                  = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-rust-1_83-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_zig_docker_build_ref                   = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-zig-0_15-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
   }
   tags = [
     "${REGISTRY}/cicd-gitlab-runner-sbtrustdockertofu:${TAG}",
