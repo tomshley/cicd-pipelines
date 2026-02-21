@@ -5,7 +5,7 @@
 .tomshley-terraform-runtime:
   variables:
     CICD_PIPELINES_REGISTRY: "${CI_REGISTRY}/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines"
-    CICD_PIPELINES_RUNNER_TAG: "0.3.0"
+    CICD_PIPELINES_RUNNER_TAG: "0.4.18"
     TF_ROOT: "${CI_PROJECT_DIR}"
   image:
     name: "${CICD_PIPELINES_REGISTRY}/cicd-gitlab-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
