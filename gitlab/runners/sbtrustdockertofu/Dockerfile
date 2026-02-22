@@ -66,7 +66,7 @@ RUN set -eux; \
     ln -sf /etc/ssl/certs/java/cacerts ${JAVA_HOME}/lib/security/cacerts; \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --no-modify-path --default-toolchain 1.83.0; \
-    rustup target add aarch64-apple-darwin x86_64-apple-darwin; \
+    rustup target add x86_64-unknown-linux-gnu aarch64-apple-darwin x86_64-apple-darwin; \
     cargo install cargo-zigbuild@0.20.1 --locked; \
     rm -rf /tmp/* /root/.rustup/tmp
 
