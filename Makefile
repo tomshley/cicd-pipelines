@@ -144,15 +144,9 @@ BAKE_FILE := docker-bake.hcl
 
 .PHONY: createbuildx build build-load push check
 
-BUILDX_NAME := tomshley_cicd_pipelines_buildx
-
 createbuildx:
-	@docker buildx inspect $(BUILDX_NAME) >/dev/null 2>&1 || \
-	  docker buildx create \
-	    --name $(BUILDX_NAME) \
-	    --driver docker-container \
-	    --use
-	@docker buildx inspect $(BUILDX_NAME) --bootstrap
+	@docker buildx use default
+	@docker buildx inspect default --bootstrap
 
 build: check-docker createbuildx
 	TAG=$(TAG) TAG_LATEST=$(TAG_LATEST) \
