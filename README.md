@@ -4,20 +4,23 @@ Spec-driven, multi-CI-platform templates and runner images for Tomshley projects
 
 ## Architecture
 
-    common/              Cross-platform specs + conformance tests (source of truth)
-    ├── specs/           Machine-readable YAML contracts
-    ├── tests/           Conformance + platform validators
-    └── runners/scripts/ Shared CI/CD exports
+    toolbox/                      Platform-agnostic shell scripts (OCI image)
+    ├── scripts/                  Gitflow, mirror, platform abstraction
+    ├── tests/                    Unit + integration tests
+    ├── Dockerfile                Toolbox OCI image (COPY'd into runners)
+    └── VARIABLES.md              Environment variable documentation
 
-    gitlab/              GitLab implementation
-    ├── ci/              Hidden-job templates (.yml) — consumers include these
-    ├── runners/         Dockerfile + scripts for runner images
-    ├── docker-bake.hcl  BuildKit bake file
-    └── Makefile         Build/push targets
+    runners/                      Build environment images (toolbox baked in)
+    ├── sbtdockertofu/            Scala + Docker + Terraform runner
+    ├── sbtallure/                Scala + Allure test reporting runner
+    └── sbtrustdockertofu/        Scala + Rust + Docker + Terraform runner
 
-    bitbucket/           Bitbucket implementation (in-development)
-    ├── ci/              Placeholder for Bitbucket Pipelines templates
-    └── runners/         Placeholder for runner images
+    adapters/                     Platform-specific YAML templates
+    ├── gitlab/ci/adapter.yml     GitLab CI adapter (all stages, jobs, policies)
+    └── bitbucket/ci/adapter.yml  Bitbucket Pipelines adapter
+
+    docker-bake.hcl               BuildKit bake file (toolbox + runners)
+    Makefile                      Build/test/push targets
 
 ## Naming Conventions
 
@@ -26,7 +29,7 @@ Spec-driven, multi-CI-platform templates and runner images for Tomshley projects
 | Variables | `TOMSHLEY_CICD_{NAME}` | `TOMSHLEY_CICD_FLOW_TYPE` |
 | GitLab hidden jobs | `.tomshley-cicd-{name}` | `.tomshley-cicd-debug` |
 | GitLab flow jobs | `tomshley-cicd-flow-{lifecycle}` | `tomshley-cicd-flow-release-start` |
-| Runner images | `cicd-gitlab-runner-{name}` | `cicd-gitlab-runner-sbtdockertofu` |
+| Runner images | `cicd-runner-{name}` | `cicd-runner-sbtdockertofu` |
 
 ## Consumer Usage (GitLab)
 
@@ -34,23 +37,15 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.4.0'
-        file:
-          - '/gitlab/ci/.stages-base.yml'
-          - '/gitlab/ci/.gitflow-base.yml'
-          - '/gitlab/ci/.gitflow-branch-policy.yml'
-          - '/gitlab/ci/.gitflow-jobs.yml'
-          - '/gitlab/ci/.container-tags.yml'
-          - '/gitlab/ci/.artifact-publish-policy.yml'
-          - '/gitlab/ci/.security-scanning.yml'
-          - '/gitlab/ci/.sbt-runtime.yml'            # pick the runtime you need
-          - '/gitlab/ci/.sbt-docker-publish.yml'      # add if you publish docker images
-          - '/gitlab/ci/.mirror-push.yml'        # add if you mirror to a secondary remote
-          - '/gitlab/ci/.docker-runtime.yml'           # add if you build containers
+        ref: 'v0.5.0'
+        file: '/adapters/gitlab/ci/adapter.yml'
+
+    variables:
+      CICD_PIPELINES_RUNNER_TAG: "0.5.0"   # pin to runner image version
 
 ## Git Flow Lifecycle Jobs
 
-Including `.gitflow-jobs.yml` gives your project automated gitflow lifecycle management:
+The adapter includes automated gitflow lifecycle management:
 
 ### Release Jobs
 
@@ -103,13 +98,13 @@ The `release-publish` and `hotfix-publish` jobs are intentional no-ops. Override
 
 ## Mirror Push
 
-Including `.mirror-push.yml` gives your project automated mirroring to a secondary remote (Bitbucket, GitHub, self-hosted, etc.).
+The adapter includes automated mirroring to a secondary remote (Bitbucket, GitHub, self-hosted, etc.).
 
 ### Variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `TOMSHLEY_CICD_MIRROR_URL` | Yes | `""` | Remote URL (SSH or HTTPS). Empty = safe no-op. |
+| `TOMSHLEY_CICD_MIRROR_URL` | No | `""` | Remote URL (SSH or HTTPS). Empty = safe no-op. |
 | `TOMSHLEY_CICD_MIRROR_BRANCHES` | No | `"main"` | Comma-separated branch list (same name on mirror) |
 | `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs for branch renaming. Overrides `BRANCHES` when set. |
 | `TOMSHLEY_CICD_MIRROR_TAGS` | No | `"true"` | Mirror tags: `true` or `false` |
@@ -118,37 +113,41 @@ Including `.mirror-push.yml` gives your project automated mirroring to a seconda
 
 ### Usage — Simple (no branch rename)
 
-    mirror-sync:
-      extends: tomshley-cicd-mirror-sync
-      variables:
-        TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
-        TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
+Set these as CI/CD variables (**Settings → CI/CD → Variables**):
+
+| Variable | Value |
+|---|---|
+| `TOMSHLEY_CICD_MIRROR_URL` | `git@bitbucket.org:org/repo.git` |
+| `TOMSHLEY_CICD_MIRROR_BRANCHES` | `main` |
 
 ### Usage — Branch Rename (develop → contrib)
 
-    mirror-sync:
-      extends: tomshley-cicd-mirror-sync
-      variables:
-        TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
-        TOMSHLEY_CICD_MIRROR_BRANCH_MAP: "main:main,develop:contrib"
+| Variable | Value |
+|---|---|
+| `TOMSHLEY_CICD_MIRROR_URL` | `git@bitbucket.org:org/repo.git` |
+| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | `main:main,develop:contrib` |
 
 ### Usage — Multiple Remotes
 
-Define one job per remote. GitLab runs them in parallel with independent failure handling:
+Override the `tomshley-cicd-mirror-sync` job in your `.gitlab-ci.yml` to define one job per remote. GitLab runs them in parallel with independent failure handling:
 
     mirror-bitbucket:
-      extends: tomshley-cicd-mirror-sync
+      extends: .tomshley-cicd-mirror-config
       variables:
         TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
         TOMSHLEY_CICD_MIRROR_BRANCH_MAP: "main:main,develop:contrib"
         TOMSHLEY_CICD_MIRROR_SSH_KEY: ".secure_files/bitbucket_key"
+      script:
+        - bash /opt/tomshley-cicd-pipelines-toolbox/mirror/sync.sh
 
     mirror-github:
-      extends: tomshley-cicd-mirror-sync
+      extends: .tomshley-cicd-mirror-config
       variables:
         TOMSHLEY_CICD_MIRROR_URL: "git@github.com:org/repo.git"
         TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
         TOMSHLEY_CICD_MIRROR_SSH_KEY: ".secure_files/github_key"
+      script:
+        - bash /opt/tomshley-cicd-pipelines-toolbox/mirror/sync.sh
 
 ### Behavior
 
@@ -157,41 +156,33 @@ Define one job per remote. GitLab runs them in parallel with independent failure
 - SSH key setup is automatic when `TOMSHLEY_CICD_MIRROR_SSH_KEY` is set (supports IPv6 hosts)
 - Credentials are never logged — HTTPS URLs are sanitized before display
 
-## Pipeline Categories
-
-| Category | Templates composed | Runner |
-|---|---|---|
-| sbt-docker | stages + gitflow + sbt-runtime + docker-runtime + publish + security | sbtdockertofu |
-| sbt | stages + gitflow + sbt-runtime + publish + security | sbtdockertofu |
-| terraform | stages + gitflow + terraform-runtime + security | sbtdockertofu (interim) |
-| container | stages + gitflow + docker-runtime + container-tags + publish + security | Stock DinD |
-
 ## Runner Images
 
-| Image | Base | Added tools |
-|---|---|---|
-| `cicd-gitlab-runner-base` | Alpine 3.23 | curl, jq, make, openssh, git, gcompat |
-| `cicd-gitlab-runner-scripts` | runner-base | 24 CI/CD shell scripts |
-| `cicd-gitlab-runner-sbtdockertofu` | runner-base + scripts | JDK 21, SBT, Docker, Buildx, OpenTofu, Python 3 |
+All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=toolbox`.
+
+| Image | Added tools |
+|---|---|
+| `cicd-toolbox` | Toolbox scripts only (not run directly — used as build stage) |
+| `cicd-runner-sbtdockertofu` | JDK 21, SBT, Docker, Buildx, OpenTofu, Python 3 |
+| `cicd-runner-sbtallure` | JDK 21, SBT, Docker, Buildx, Allure 2.30 |
+| `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.83, Zig, Docker, Buildx, OpenTofu, Python 3 |
 
 ## Local Development
 
-    make test               # Conformance tests
-    make gitlab-build-load  # Build runner images locally
-    make gitlab-check       # Dry-run bake file
+    make test               # Toolbox tests
+    make build-load         # Build runner images locally
+    make check              # Dry-run bake file
 
-## Conformance Model
+## Testing
 
-- `common/specs/` defines contracts for stages, flow types, publish policy, etc.
-- `common/tests/conformance.sh` validates all active/in-development platforms
-- `active` platforms → failures are errors
-- `in-development` platforms → failures are warnings
-- `roadmap` platforms → skipped
+- `toolbox/tests/` — Unit and integration tests for toolbox scripts
+- `toolbox/tests/run-all.sh` — Runs all test suites
+- Tests validate version parsing, gitflow lifecycle, pinned version drift, and variable documentation
 
 ## Versioning
 
-- Version in `VERSION` file (currently `v0.4.0`)
-- Consumer projects pin to `ref: 'v0.4.0'` in their includes
+- Version in `VERSION` file (bumped to `0.5.0` during release-start)
+- Consumer projects pin to `ref: 'v0.5.0'` in their includes
 - Runner images tagged with `TOMSHLEY_CICD_BUILD_REVISION`
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.
