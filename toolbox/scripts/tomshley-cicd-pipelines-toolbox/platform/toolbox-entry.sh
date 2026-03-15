@@ -64,9 +64,17 @@ git_configure_user "${TOMSHLEY_CICD_GIT_USER_EMAIL}" "${TOMSHLEY_CICD_GIT_USER_N
 URL_NO_SCHEME=$(echo "${TOMSHLEY_CICD_PROJECT_URL}" | sed -E 's|https?://||')
 URL_NO_SCHEME="${URL_NO_SCHEME%.git}"
 git remote set-url origin "https://${TOMSHLEY_CICD_GIT_PUSH_USER}@${URL_NO_SCHEME}.git"
+
+# Clear any credential helpers/extraheaders set by CI runner (e.g. FF_USE_GIT_PROACTIVE_AUTH)
+# to prevent them from taking precedence over our ASKPASS mechanism.
+git config --global --unset-all credential.helper 2>/dev/null || true
+git config --global --unset-all http.extraheader 2>/dev/null || true
+
 _TOOLBOX_ASKPASS=$(mktemp)
 chmod 700 "$_TOOLBOX_ASKPASS"
-printf '#!/bin/sh\necho "${TOMSHLEY_CICD_GIT_PUSH_TOKEN}"\n' > "$_TOOLBOX_ASKPASS"
+# Bake the token VALUE into the script (not the variable name) so the ASKPASS
+# subprocess doesn't depend on environment variable propagation.
+printf '#!/bin/sh\nprintf "%%s\\n" "'"${TOMSHLEY_CICD_GIT_PUSH_TOKEN}"'"\n' > "$_TOOLBOX_ASKPASS"
 export GIT_ASKPASS="$_TOOLBOX_ASKPASS"
 export GIT_TERMINAL_PROMPT=0
 
