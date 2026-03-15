@@ -11,6 +11,7 @@ include:
 variables:
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
   BASE_CONTAINERS_UPSTREAM_TAG: 0.4.3
+  CICD_PIPELINES_RUNNER_TAG: "develop-15860c61"
 
 # ── Toolbox Tests ────────────────────────────────────────────────────────────
 
