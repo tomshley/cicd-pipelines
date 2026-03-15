@@ -1,0 +1,690 @@
+# Copyright (c) 2024–2026 Tomshley
+#
+# Licensed under the Apache License, Version 2.0
+#
+# Single GitLab CI/CD adapter for cicd-pipelines toolbox.
+# Consumers include this ONE file to get the full pipeline framework:
+#   stages, workflow rules, branch policies, publish policies,
+#   artifact/container tags, security scanning, docker runtime,
+#   gitflow lifecycle jobs, and mirror sync.
+#
+# Usage in consumer .gitlab-ci.yml:
+#   include:
+#     - project: 'tomshley/.../cicd-pipelines'
+#       ref: 'v0.5.0'
+#       file: '/adapters/gitlab/ci/adapter.yml'
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Security Scanning Templates
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Security Scanning
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Stages
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Stages
+stages:
+  - .pre                    # bootstrap, context, validation
+  - security.pre-build      # SAST, secret detection, dependency scanning, IaC scanning, license compliance
+  - build                   # compile, assemble, package
+  - test                    # unit / integration tests
+  - security.post-build     # container scanning (requires built image)
+  - deploy                  # publish / release / apply
+  - .post                   # cleanup, notifications, manual flow hooks
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Default Variables
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Default Flow Variables
+variables:
+  TOMSHLEY_CICD_FLOW_TYPE: "unknown"
+  TOMSHLEY_CICD_BUILD_REVISION: "$CI_COMMIT_SHORT_SHA"
+  TOMSHLEY_CICD_BUILD_VERSION: "dev"
+  SECRET_DETECTION_ENABLED: 'true'
+  DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Flow Resolution (PIPELINE-LEVEL)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Flow Resolution (PIPELINE-LEVEL)
+# NOTE:
+# - Branch pipelines use CI_COMMIT_BRANCH
+# - Merge request pipelines use CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+# - Job rules MUST NOT be used for flow classification
+workflow:
+  rules:
+    # --------------------------------------------------------------------------
+    # Merge request pipelines
+    # --------------------------------------------------------------------------
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^feature\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "feature"
+        TOMSHLEY_CICD_BUILD_REVISION: "feature-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^hotfix\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "hotfix"
+        TOMSHLEY_CICD_BUILD_REVISION: "hotfix-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "release"
+        TOMSHLEY_CICD_BUILD_REVISION: "rc-$CI_COMMIT_SHORT_SHA"
+
+    # --------------------------------------------------------------------------
+    # Tag pipelines
+    # --------------------------------------------------------------------------
+    - if: '$CI_COMMIT_TAG'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "tag"
+        TOMSHLEY_CICD_BUILD_REVISION: ""
+
+    # --------------------------------------------------------------------------
+    # Branch pipelines
+    # --------------------------------------------------------------------------
+    - if: '$CI_COMMIT_BRANCH =~ /^feature\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "feature"
+        TOMSHLEY_CICD_BUILD_REVISION: "feature-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "hotfix"
+        TOMSHLEY_CICD_BUILD_REVISION: "hotfix-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "release"
+        TOMSHLEY_CICD_BUILD_REVISION: "rc-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "develop"
+        TOMSHLEY_CICD_BUILD_REVISION: "develop-$CI_COMMIT_SHORT_SHA"
+
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
+      variables:
+        TOMSHLEY_CICD_FLOW_TYPE: "main"
+        TOMSHLEY_CICD_BUILD_REVISION: "prod-$CI_COMMIT_SHORT_SHA"
+
+    # --------------------------------------------------------------------------
+    # Always create pipeline (flow may remain "unknown")
+    # --------------------------------------------------------------------------
+    - when: always
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Debug / Introspection
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Debug / Introspection
+.tomshley-cicd-debug:
+  before_script:
+    - |
+      echo "=== CI/CD Git Flow ==="
+      echo "Pipeline Source : ${CI_PIPELINE_SOURCE}"
+      echo "Ref             : ${CI_COMMIT_REF_NAME}"
+      echo "MR Source Branch: ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:-N/A}"
+      echo "Tag             : ${CI_COMMIT_TAG}"
+      echo "Flow Type       : ${TOMSHLEY_CICD_FLOW_TYPE}"
+      echo "Build Revision  : ${TOMSHLEY_CICD_BUILD_REVISION}"
+      echo "Build Version   : ${TOMSHLEY_CICD_BUILD_VERSION}"
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Bootstrap (to be extended by consumers)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Bootstrap
+.tomshley-cicd-bootstrap:
+  before_script:
+    - !reference [.tomshley-cicd-debug, before_script]
+    - export TOMSHLEY_CICD_BUILD_VERSION="$(cat ${CI_PROJECT_DIR}/VERSION 2>/dev/null || echo 'dev')"
+    - echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Branch Policy (per-flow-type rule fragments)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Branch Policy
+.policy-runs-on-feature:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^feature\/.+$/'
+    - if: '$CI_COMMIT_BRANCH =~ /^feature\/.+$/'
+
+.policy-runs-on-develop:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+.policy-runs-on-release:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^release\/.+$/'
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+
+.policy-runs-on-hotfix:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^hotfix\/.+$/'
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+
+.policy-runs-on-tag:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+
+.policy-runs-on-main:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "master"'
+
+.policy-runs-on-any-branch:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
+.policy-runs-always:
+  rules:
+    - when: always
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Artifact Publish Policy (flow-governed)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Artifact Publish Policy
+.flow-artifact-publish:
+  stage: deploy
+  rules:
+    # --------------------------------------------------------------------------
+    # Always skip publishes for Merge Request pipelines (must *not* publish)
+    # --------------------------------------------------------------------------
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+
+    # develop -> automatic publish
+    - if: '$TOMSHLEY_CICD_FLOW_TYPE == "develop"'
+      when: on_success
+
+    # feature / hotfix -> manual publish (branch pipelines)
+    - if: '$TOMSHLEY_CICD_FLOW_TYPE == "feature"'
+      when: manual
+      allow_failure: true
+    - if: '$TOMSHLEY_CICD_FLOW_TYPE == "hotfix"'
+      when: manual
+      allow_failure: true
+
+    # release -> manual publish (RC)
+    - if: '$TOMSHLEY_CICD_FLOW_TYPE == "release"'
+      when: manual
+      allow_failure: true
+
+    # tag -> manual publish (production)
+    - if: '$TOMSHLEY_CICD_FLOW_TYPE == "tag"'
+      when: manual
+      allow_failure: true
+
+    # default deny
+    - when: never
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Artifact Tags
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Artifact Tags
+# Unified artifact publish policy and tag format.
+# Exports: CICD_PUBLISH_PINNABLE, CICD_PUBLISH_ROLLING,
+#          CICD_PUBLISH_PINNABLE_TAG, CICD_PUBLISH_ROLLING_TAG.
+#
+# Format pattern (all artifact types):
+#   Branch pipelines: {ref-slug}-{sha} (pinnable), {ref-slug}-latest (rolling)
+#   Tag pipelines:    "" (pinnable, clean version), N/A (no rolling)
+#
+# Consumers:
+#   Container templates alias BASE_CONTAINERS_TAG=$CICD_PUBLISH_PINNABLE_TAG
+#   SBT publish sets TOMSHLEY_CICD_BUILD_REVISION=$CICD_PUBLISH_PINNABLE_TAG
+
+.before-artifact-tags:
+  before_script:
+    - |
+      set -e
+
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        # Tag (release) pipeline — clean version, single publish
+        export CICD_PUBLISH_PINNABLE="true"
+        export CICD_PUBLISH_ROLLING="false"
+        export CICD_PUBLISH_PINNABLE_TAG=""
+        export CICD_PUBLISH_ROLLING_TAG="latest"
+      else
+        # Branch / MR pipeline — two publishes
+        export CICD_PUBLISH_PINNABLE="true"
+        export CICD_PUBLISH_ROLLING="true"
+        export CICD_PUBLISH_PINNABLE_TAG="${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
+        export CICD_PUBLISH_ROLLING_TAG="${CI_COMMIT_REF_SLUG}-latest"
+      fi
+
+      echo "Artifact publish tags resolved:"
+      echo "  CICD_PUBLISH_PINNABLE     = $CICD_PUBLISH_PINNABLE"
+      echo "  CICD_PUBLISH_ROLLING      = $CICD_PUBLISH_ROLLING"
+      echo "  CICD_PUBLISH_PINNABLE_TAG = ${CICD_PUBLISH_PINNABLE_TAG:-<empty>}"
+      echo "  CICD_PUBLISH_ROLLING_TAG  = ${CICD_PUBLISH_ROLLING_TAG:-N/A}"
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Container Tags
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Container Tags
+# Container-specific tag aliases.
+# Delegates to .before-artifact-tags for policy + format,
+# then aliases the unified variables for backward compatibility.
+
+.before-container-tags:
+  before_script:
+    - !reference [.before-artifact-tags, before_script]
+    - |
+      # Backward-compatible aliases for container consumers
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        export BASE_CONTAINERS_TAG="${CI_COMMIT_TAG#v}"
+      else
+        export BASE_CONTAINERS_TAG="$CICD_PUBLISH_PINNABLE_TAG"
+      fi
+      export BASE_CONTAINERS_TAG_LATEST="$CICD_PUBLISH_ROLLING_TAG"
+
+      echo "Container tags resolved:"
+      echo "  BASE_CONTAINERS_TAG        = $BASE_CONTAINERS_TAG"
+      echo "  BASE_CONTAINERS_TAG_LATEST = $BASE_CONTAINERS_TAG_LATEST"
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Docker Runtime
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Docker Runtime
+.tomshley-docker-runtime:
+  extends:
+    - .before-container-tags
+
+  image: ${BASE_CONTAINERS_REGISTRY}/entry-docker-cli-buildx-29-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}
+  services:
+    - name: ${BASE_CONTAINERS_REGISTRY}/daemon-docker-29-dind-rootless-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}
+      alias: docker
+
+  tags:
+    - saas-linux-xlarge-amd64
+
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_CLI_EXPERIMENTAL: enabled
+
+  before_script:
+    - !reference [.before-container-tags, before_script]
+    - |
+      if [ -n "$CI_REGISTRY_USER" ] && [ -n "$CI_REGISTRY_PASSWORD" ]; then
+        docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+      fi
+    - |
+      BUILDX_NAME="${CI_PROJECT_NAME}_buildx"
+      docker buildx inspect "$BUILDX_NAME" >/dev/null 2>&1 || \
+        docker buildx create --name "$BUILDX_NAME" --driver docker-container --use
+      docker buildx inspect "$BUILDX_NAME" --bootstrap
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Security Scanning Stage Overrides
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Security Scanning Stage Overrides
+# Stage overrides to align with stages defined above
+sast:
+  stage: security.pre-build
+
+secret_detection:
+  stage: security.pre-build
+
+dependency_scanning:
+  stage: security.pre-build
+
+# Post-build scanning (container scanning) is opt-in.
+# Consumer adds this to their .gitlab-ci.yml when they have a built image:
+#
+#   include:
+#     - template: Security/Container-Scanning.gitlab-ci.yml
+#
+#   container_scanning:
+#     stage: security.post-build
+#     variables:
+#       CS_IMAGE: "$CI_REGISTRY_IMAGE:$TOMSHLEY_CICD_BUILD_REVISION"
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Git Flow Lifecycle Jobs
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ---------------------------------------------------------------------------
+# Git Flow lifecycle jobs.
+# Consumers include this file to get automated release/hotfix flow management.
+#
+# Required CI/CD variables (set in project or group settings):
+#   TOMSHLEY_CICD_GIT_PUSH_TOKEN  — Access token with write_repository scope
+#   TOMSHLEY_CICD_GIT_PUSH_USER   — Username for git push
+#
+# Token fallback chain (resolved in before_script):
+#   Token: TOMSHLEY_CICD_GIT_PUSH_TOKEN → GL_PASSWORD → CI_JOB_TOKEN
+#   User:  TOMSHLEY_CICD_GIT_PUSH_USER  → GITLAB_USER_LOGIN → gitlab-ci-token
+#
+# If using CI_JOB_TOKEN (the default fallback), enable
+# "CI/CD job token can push to this project" in
+# Settings > CI/CD > Token Access.
+#
+# Optional:
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for merge/tag messages
+#     Default: "Tomshley CI Pipeline"
+#     Override to customise commit messages, e.g. "Acme Corp"
+#
+# Security: If using TOMSHLEY_CICD_GIT_PUSH_TOKEN or GL_PASSWORD, mark the
+# variable as "Masked" in CI/CD settings to prevent credential exposure in
+# git error output. CI_JOB_TOKEN is masked by GitLab automatically.
+#
+# Note: flow-feature-start (auto-create MR) is NOT implemented here.
+# MR/PR creation APIs are fundamentally platform-specific (GitLab MR vs
+# GitHub PR vs Bitbucket PR vs Jenkins — no shared contract). Each platform
+# must provide its own implementation if desired.
+# ---------------------------------------------------------------------------
+
+
+#region Git Push Configuration
+.tomshley-cicd-git-push-config:
+  image: ${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
+  tags:
+    - saas-linux-small-amd64
+  variables:
+    CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
+    CICD_PIPELINES_RUNNER_TAG: "0.4.20"
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+    # Toolbox interface variables (mapped from GitLab CI environment)
+    TOMSHLEY_CICD_PROJECT_DIR: "${CI_PROJECT_DIR}"
+    TOMSHLEY_CICD_PROJECT_URL: "${CI_PROJECT_URL}"
+    TOMSHLEY_CICD_CURRENT_BRANCH: "${CI_COMMIT_BRANCH}"
+    TOMSHLEY_CICD_TAG: "${CI_COMMIT_TAG}"
+    TOMSHLEY_CICD_GIT_USER_EMAIL: "${GITLAB_USER_EMAIL}"
+    TOMSHLEY_CICD_GIT_USER_NAME: "${GITLAB_USER_NAME}"
+  before_script:
+    # download-secure-files is deprecated in GitLab 18.6; migrate to glab securefile download
+    - curl --fail --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer" | bash || true
+    # GitLab token fallback chain: TOMSHLEY_CICD_GIT_PUSH_TOKEN → GL_PASSWORD → CI_JOB_TOKEN
+    - |
+      if [ -z "${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-}" ]; then
+        if [ -n "${GL_PASSWORD:-}" ]; then
+          export TOMSHLEY_CICD_GIT_PUSH_TOKEN="${GL_PASSWORD}"
+        else
+          export TOMSHLEY_CICD_GIT_PUSH_TOKEN="${CI_JOB_TOKEN}"
+          export TOMSHLEY_CICD_GIT_PUSH_USER="gitlab-ci-token"
+        fi
+      fi
+      if [ -z "${TOMSHLEY_CICD_GIT_PUSH_USER:-}" ]; then
+        export TOMSHLEY_CICD_GIT_PUSH_USER="${GITLAB_USER_LOGIN:-gitlab-ci-token}"
+      fi
+    - source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
+  after_script:
+    - rm -f "$(cat /tmp/.toolbox_askpass_path 2>/dev/null)" /tmp/.toolbox_askpass_path 2>/dev/null || true
+#endregion
+
+
+#region Flow: release-start (develop → release/*)
+tomshley-cicd-flow-release-start:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/flow/release-start.sh
+#endregion
+
+
+#region Flow: release-continue (checkout existing release branch)
+tomshley-cicd-flow-release-continue:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/flow/release-continue.sh
+#endregion
+
+
+#region Flow: release-cancel-new (delete existing release, create fresh from develop)
+tomshley-cicd-flow-release-cancel-new:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/flow/release-cancel-new.sh
+#endregion
+
+
+#region Flow: release-start-skip (skip existing release, bump to next version)
+tomshley-cicd-flow-release-start-skip:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+      when: manual
+  allow_failure: false
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/flow/release-start-skip.sh
+#endregion
+
+
+#region Flow: release-publish (extension point for release lifecycle)
+# This job is intentionally a no-op in the default implementation.
+# It appears as a manual trigger on release/* branch pipelines as a
+# hook point where consumers can add release-candidate artifact
+# publishing or other pre-finish steps by overriding the script block.
+# To override in a consumer, redefine the script in your .gitlab-ci.yml:
+#   tomshley-cicd-flow-release-publish:
+#     script:
+#       - echo "custom publish logic here"
+#
+# NOTE: The image below requires BASE_CONTAINERS_REGISTRY and
+# BASE_CONTAINERS_UPSTREAM_TAG to be defined by the consumer's
+# .gitlab-ci.yml variables block. If not set, this manual job will
+# fail at image pull — harmless since it is allow_failure: true.
+tomshley-cicd-flow-release-publish:
+  stage: deploy
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      echo "Release publish: no default action (override this job in consumers)"
+      echo "Branch: ${CI_COMMIT_BRANCH}"
+#endregion
+
+
+#region Flow: release-finish (release/* → main + develop, tag, cleanup)
+tomshley-cicd-flow-release-finish:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release\/.+$/'
+      when: manual
+  allow_failure: false
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/flow/release-finish.sh
+#endregion
+
+
+#region Flow: hotfix-publish (extension point for hotfix lifecycle)
+# This job is intentionally a no-op in the default implementation.
+# It appears as a manual trigger on hotfix/* branch pipelines as a
+# hook point where consumers can add hotfix artifact publishing or
+# other pre-finish steps by overriding the script block.
+# To override in a consumer, redefine the script in your .gitlab-ci.yml:
+#   tomshley-cicd-flow-hotfix-publish:
+#     script:
+#       - echo "custom publish logic here"
+#
+# NOTE: The image below requires BASE_CONTAINERS_REGISTRY and
+# BASE_CONTAINERS_UPSTREAM_TAG to be defined by the consumer's
+# .gitlab-ci.yml variables block. If not set, this manual job will
+# fail at image pull — harmless since it is allow_failure: true.
+tomshley-cicd-flow-hotfix-publish:
+  stage: deploy
+  image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      when: manual
+      allow_failure: true
+  script:
+    - |
+      echo "Hotfix publish: no default action (override this job in consumers)"
+      echo "Branch: ${CI_COMMIT_BRANCH}"
+#endregion
+
+
+#region Flow: hotfix-finish (hotfix/* → main + develop, tag, cleanup)
+tomshley-cicd-flow-hotfix-finish:
+  stage: .post
+  extends:
+    - .tomshley-cicd-git-push-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^hotfix\/.+$/'
+      when: manual
+  allow_failure: false
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/flow/hotfix-finish.sh
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Mirror Push
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ---------------------------------------------------------------------------
+# Git mirror push.
+# Consumers include this file to mirror branches and tags to a secondary
+# remote (e.g., Bitbucket, GitHub).
+#
+# Required CI/CD variables (set in .secure_files/.env or CI/CD settings):
+#   TOMSHLEY_CICD_MIRROR_URL — Remote URL (SSH or HTTPS)
+#
+# Optional:
+#   TOMSHLEY_CICD_MIRROR_BRANCHES  — Comma-separated branch list (default: main)
+#   TOMSHLEY_CICD_MIRROR_BRANCH_MAP — Comma-separated src:dst pairs for branch renaming
+#                                    e.g. "main:main,develop:contrib"
+#                                    Overrides BRANCHES when set.
+#   TOMSHLEY_CICD_MIRROR_TAGS      — Mirror tags: true/false (default: true)
+#   TOMSHLEY_CICD_MIRROR_SSH_KEY   — Path to SSH key in .secure_files/
+#   TOMSHLEY_CICD_MIRROR_FORCE_PUSH — Use --force instead of --force-with-lease (default: true)
+#
+# If TOMSHLEY_CICD_MIRROR_URL is empty, the job is a safe no-op.
+#
+# Force Push Behavior:
+#   By default, this job uses --force to ensure the mirror matches origin exactly.
+#   This is safe because the origin CI pipeline is authoritative and the mirror
+#   is a downstream read-only copy. Set TOMSHLEY_CICD_MIRROR_FORCE_PUSH=false to
+#   use --force-with-lease instead (safer but may fail if mirror has diverged).
+#   NEVER commit directly to the mirror — it will be overwritten.
+#
+# Failure Handling:
+#   This job has allow_failure: true to prevent mirror sync issues from blocking
+#   the main pipeline. Check job logs if mirroring fails due to auth/network issues.
+#
+# Credentials: The .secure_files/.env file is sourced automatically.
+# For SSH mirrors, set TOMSHLEY_CICD_MIRROR_SSH_KEY to the key path
+# inside .secure_files/ and ensure the key is uploaded via GitLab
+# Secure Files. HTTPS mirrors can use embedded tokens in the URL.
+# ---------------------------------------------------------------------------
+
+
+#region Mirror Push Configuration
+# Extends git-push-config for image, tags, before_script, and base variables.
+# GitLab CI merges variables: blocks, so only mirror-specific vars are declared here.
+.tomshley-cicd-mirror-config:
+  extends:
+    - .tomshley-cicd-git-push-config
+  variables:
+    # Mirror-specific variables (added to inherited git-push-config variables)
+    TOMSHLEY_CICD_MIRROR_URL: ""
+    TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
+    TOMSHLEY_CICD_MIRROR_BRANCH_MAP: ""
+    TOMSHLEY_CICD_MIRROR_TAGS: "true"
+    TOMSHLEY_CICD_MIRROR_SSH_KEY: ""
+    TOMSHLEY_CICD_MIRROR_FORCE_PUSH: "true"
+#endregion
+
+
+#region Mirror Sync (branch/tag pipelines)
+tomshley-cicd-mirror-sync:
+  stage: .post
+  extends:
+    - .tomshley-cicd-mirror-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$TOMSHLEY_CICD_MIRROR_URL && $CI_COMMIT_TAG'
+      when: on_success
+    - if: '$TOMSHLEY_CICD_MIRROR_URL && $CI_COMMIT_BRANCH'
+      when: on_success
+  allow_failure: true
+  script:
+    - /opt/tomshley-cicd-pipelines-toolbox/mirror/sync.sh
+
+#endregion

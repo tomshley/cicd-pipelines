@@ -12,5 +12,6 @@
 # Base-containers upstream image tag (the FROM images cicd-pipelines builds on)
 BASE_CONTAINERS_UPSTREAM_TAG=0.4.3
 
-# Runner image tag for consumers (follows BASE_CONTAINERS_UPSTREAM_TAG)
-CICD_PIPELINES_RUNNER_TAG=0.4.18
+# CI/CD Pipelines runner image registry and tag (for gitflow/mirror adapters)
+CICD_PIPELINES_REGISTRY=registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
+CICD_PIPELINES_RUNNER_TAG=0.4.20

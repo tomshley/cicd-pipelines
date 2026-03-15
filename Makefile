@@ -58,7 +58,10 @@ VERSION := $(shell cat $(VERSION_FILE) 2>/dev/null || echo dev)
 
 export BASE_CONTAINERS_REGISTRY    ?= registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
 export BASE_CONTAINERS_UPSTREAM_TAG ?= latest
+export CICD_PIPELINES_REGISTRY     ?= registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
 export CICD_PIPELINES_RUNNER_TAG   ?= $(BASE_CONTAINERS_UPSTREAM_TAG)
+export TAG                         ?= $(VERSION)
+export TAG_LATEST                  ?= latest
 #endregion Registry coordinates
 
 #region Local platform detection
@@ -95,11 +98,12 @@ help:
 	@echo "Tomshley CI/CD Pipelines"
 	@echo
 	@echo "Targets:"
-	@echo "  make test              Run conformance tests"
-	@echo "  make gitlab-build      Build GitLab runner images"
-	@echo "  make gitlab-build-load Build+load GitLab runner images for LOCAL_PLATFORM=$(LOCAL_PLATFORM)"
-	@echo "  make gitlab-push       Push GitLab runner images to registry"
-	@echo "  make gitlab-check      Print bake file (dry-run)"
+	@echo "  make test              Run toolbox tests"
+	@echo "  make build             Build runner images"
+	@echo "  make build-load        Build+load runner images for LOCAL_PLATFORM=$(LOCAL_PLATFORM)"
+	@echo "  make push              Push runner images to registry"
+	@echo "  make check-docker      Verify docker + buildx available"
+	@echo "  make check             Print bake file (dry-run)"
 	@echo
 	@echo "Resolved variables:"
 	@echo "  BASE_CONTAINERS_REGISTRY=$(BASE_CONTAINERS_REGISTRY)"
@@ -114,8 +118,8 @@ help:
 # Checks
 # ------------------------------------------------------------------------------
 
-.PHONY: check
-check:
+.PHONY: check-docker
+check-docker:
 	@command -v docker >/dev/null || { echo "docker not found"; exit 1; }
 	@docker buildx version >/dev/null || { echo "docker buildx not available"; exit 1; }
 #endregion Checks
@@ -127,28 +131,55 @@ check:
 
 .PHONY: test
 test:
-	@echo "=== Running conformance tests ==="
-	bash common/tests/conformance.sh
-	bash common/tests/validate-gitlab.sh
-	bash common/tests/validate-bitbucket.sh
+	@echo "=== Running toolbox tests ==="
+	bash toolbox/tests/run-all.sh
 #endregion Test targets
 
-#region Platform dispatch – GitLab
+#region Build targets
 # ------------------------------------------------------------------------------
-# GitLab runner image targets (delegates to gitlab/Makefile)
+# Build targets (toolbox + runners via docker-bake.hcl)
 # ------------------------------------------------------------------------------
 
-.PHONY: gitlab-build gitlab-build-load gitlab-push gitlab-check
+BAKE_FILE := docker-bake.hcl
 
-gitlab-build:
-	$(MAKE) -C gitlab build
+.PHONY: createbuildx build build-load push check
 
-gitlab-build-load:
-	$(MAKE) -C gitlab build-load
+BUILDX_NAME := tomshley_cicd_pipelines_buildx
 
-gitlab-push:
-	$(MAKE) -C gitlab push
+createbuildx:
+	@docker buildx inspect $(BUILDX_NAME) >/dev/null 2>&1 || \
+	  docker buildx create \
+	    --name $(BUILDX_NAME) \
+	    --driver docker-container \
+	    --use
+	@docker buildx inspect $(BUILDX_NAME) --bootstrap
 
-gitlab-check:
-	$(MAKE) -C gitlab check
-#endregion Platform dispatch – GitLab
+build: check-docker createbuildx
+	TAG=$(TAG) TAG_LATEST=$(TAG_LATEST) \
+	REGISTRY=$(CICD_PIPELINES_REGISTRY) \
+	BASE_CONTAINERS_REGISTRY=$(BASE_CONTAINERS_REGISTRY) \
+	BASE_CONTAINERS_UPSTREAM_TAG=$(BASE_CONTAINERS_UPSTREAM_TAG) \
+	docker buildx bake -f $(BAKE_FILE)
+
+build-load: check-docker createbuildx
+	TAG=$(TAG) TAG_LATEST=$(TAG_LATEST) \
+	REGISTRY=$(CICD_PIPELINES_REGISTRY) \
+	BASE_CONTAINERS_REGISTRY=$(BASE_CONTAINERS_REGISTRY) \
+	BASE_CONTAINERS_UPSTREAM_TAG=$(BASE_CONTAINERS_UPSTREAM_TAG) \
+	docker buildx bake -f $(BAKE_FILE) --set '*.platform=$(LOCAL_PLATFORM)' --load
+
+push: check-docker createbuildx
+	TAG=$(TAG) TAG_LATEST=$(TAG_LATEST) \
+	REGISTRY=$(CICD_PIPELINES_REGISTRY) \
+	BASE_CONTAINERS_REGISTRY=$(BASE_CONTAINERS_REGISTRY) \
+	BASE_CONTAINERS_UPSTREAM_TAG=$(BASE_CONTAINERS_UPSTREAM_TAG) \
+	docker buildx bake -f $(BAKE_FILE) --push
+
+check: check-docker
+	@echo "Checking bake file..."
+	TAG=$(TAG) TAG_LATEST=$(TAG_LATEST) \
+	REGISTRY=$(CICD_PIPELINES_REGISTRY) \
+	BASE_CONTAINERS_REGISTRY=$(BASE_CONTAINERS_REGISTRY) \
+	BASE_CONTAINERS_UPSTREAM_TAG=$(BASE_CONTAINERS_UPSTREAM_TAG) \
+	docker buildx bake -f $(BAKE_FILE) --print
+#endregion Build targets
