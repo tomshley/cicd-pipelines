@@ -54,6 +54,8 @@ variables:
   TOMSHLEY_CICD_BUILD_VERSION: "dev"
   SECRET_DETECTION_ENABLED: 'true'
   DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
+  CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
+  CICD_PIPELINES_RUNNER_TAG: "0.4.20"
 #endregion
 
 
@@ -424,8 +426,6 @@ dependency_scanning:
   tags:
     - saas-linux-small-amd64
   variables:
-    CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
-    CICD_PIPELINES_RUNNER_TAG: "0.4.20"
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
     # Toolbox interface variables (mapped from GitLab CI environment)
