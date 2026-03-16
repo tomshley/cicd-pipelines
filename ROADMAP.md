@@ -38,30 +38,37 @@
 - [x] cicd-pipelines dogfoods its own gitflow-jobs.yml
 - [x] Conformance tests for flow job names
 
+### v0.5.0 — Toolbox Extraction + Three-Layer Architecture
+
+- [x] Extract shell logic to `toolbox/` OCI image
+- [x] Migrate runners to `COPY --from=toolbox` pattern
+- [x] Move adapter YAML to `adapters/gitlab/ci/`
+- [x] Delete `common/`, `gitlab/`, `bitbucket/` directories
+- [x] Add `toolbox/tests/` test suite
+- [x] Add `test-pinned-versions.sh` drift detection
+- [x] Bitbucket adapter using toolbox scripts
+
 ## Planned Milestones
 
-### v0.5.0 — Mirror Push + Git LFS
+### v0.6.0 — Git LFS Support
 
-- [ ] `common/specs/mirror-push.yml` cross-platform mirror push contract
-- [ ] `gitlab/ci/.mirror-push.yml` GitLab mirror sync job
-- [ ] Conformance tests for mirror-push template
-- [ ] `common/runners/scripts/lfs-setup.sh` cross-platform LFS bootstrap script
-- [ ] `gitlab/ci/.lfs-runtime.yml` GitLab hidden job (`.tomshley-cicd-lfs-runtime`)
+- [ ] `toolbox/lib/lfs.sh` cross-platform LFS bootstrap script
+- [ ] `adapters/gitlab/ci/.lfs-runtime.yml` GitLab hidden job (`.tomshley-cicd-lfs-runtime`)
 - [ ] Consumers extend `.tomshley-cicd-lfs-runtime` for build/publish jobs needing LFS content
-- [ ] Bitbucket/GitHub equivalents as platforms go active
+- [ ] Bitbucket equivalent as platform matures
 
-### v0.6.0 — Bitbucket Pipelines
+### v0.7.0 — Bitbucket Pipelines
 
 - [ ] Bitbucket CI templates implementing common specs
 - [ ] Platform status: bitbucket → active
 
-### v0.7.0 — Additional Runners
+### v0.8.0 — Additional Runners
 
 - [ ] `polyglot` runner image (SBT + Python + Node — for schema-registry)
 - [ ] `infratofu` runner image (OpenTofu + Python — for terraform)
 - [ ] `acceptance` runner image (Python + Node — for acceptance tests)
 
-### v0.8.0 — GitHub Actions
+### v0.9.0 — GitHub Actions
 
 - [ ] `github/ci/` composite actions + reusable workflows
 - [ ] Platform status: github → active
