@@ -6,7 +6,7 @@ This project follows Semantic Versioning.
 
 ---
 
-## v0.5.0 (unreleased)
+## v0.5.0
 
 ### Breaking Changes
 
@@ -65,6 +65,7 @@ This project follows Semantic Versioning.
 ### Fixed
 - Stdout contamination in lib functions, force-push implementation, orphan branch handling, pinned-version drift detection, mirror early-exit on first failure, trailing newlines, release-cancel-new self-referential branch check
 - Added documentation comments in GitLab and Bitbucket adapters clarifying that publish extension points require `BASE_CONTAINERS_*` variables to be defined by consumers
+- Internal self-hosting release-branch bootstrap: documented and applied `CICD_PIPELINES_RUNNER_TAG` override to a published `develop-*` runner image so gitflow jobs do not block on unavailable pinned release images during `v0.5.0` cutover
 
 ---
 
