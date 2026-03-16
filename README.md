@@ -41,7 +41,11 @@ In your project's `.gitlab-ci.yml`:
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.5.0"   # pin to runner image version
+      CICD_PIPELINES_RUNNER_TAG: "0.5.0"   # pin to runner image version (match your ref)
+
+For self-hosting this repository before `0.5.0` runner images are published, temporarily
+override `CICD_PIPELINES_RUNNER_TAG` in this repo's `.gitlab-ci.yml` to a published
+`develop-*` tag.
 
 ## Git Flow Lifecycle Jobs
 
@@ -171,6 +175,24 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 | `cicd-runner-sbtallure` | JDK 21, SBT, Docker, Buildx, Allure 2.30 |
 | `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.83, Zig, Docker, Buildx, OpenTofu, Python 3 |
 
+## Container Registry Cleanup Policy (GitLab)
+
+Configured in **Settings → Packages and registries → Container registry → Cleanup policies**:
+
+| Setting | Value |
+|---|---|
+| Enable cleanup policy | Enabled |
+| Run cleanup | Every day |
+| Keep the most recent | 25 tags per image name |
+| Keep tags matching | `^\d+\.\d+\.\d+$|^develop-latest$|^main-latest$` |
+| Remove tags older than | 30 days |
+| Remove tags matching | `.*` |
+
+Notes:
+- Semver release tags (for example `0.5.0`) are retained by regex.
+- Rolling tags `develop-latest` and `main-latest` are retained.
+- Branch/SHA tags are automatically cleaned after 30 days.
+
 ## Local Development
 
     make test               # Toolbox tests
@@ -185,9 +207,10 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 
 ## Versioning
 
-- Version in `VERSION` file (bumped to `0.5.0` during release-start)
-- Consumer projects pin to `ref: 'v0.5.0'` in their includes
-- Runner images tagged with `TOMSHLEY_CICD_BUILD_REVISION`
+- `VERSION` file is the release source of truth (SemVer)
+- `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.5.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.5.0"`)
+- Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.
 

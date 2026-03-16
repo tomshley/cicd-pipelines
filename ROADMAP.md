@@ -38,8 +38,6 @@
 - [x] cicd-pipelines dogfoods its own gitflow-jobs.yml
 - [x] Conformance tests for flow job names
 
-## Planned Milestones
-
 ### v0.5.0 — Toolbox Extraction + Three-Layer Architecture
 
 - [x] Extract shell logic to `toolbox/` OCI image
@@ -49,6 +47,8 @@
 - [x] Add `toolbox/tests/` test suite
 - [x] Add `test-pinned-versions.sh` drift detection
 - [x] Bitbucket adapter using toolbox scripts
+
+## Planned Milestones
 
 ### v0.6.0 — Git LFS Support
 
