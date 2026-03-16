@@ -67,23 +67,17 @@ The adapter includes automated gitflow lifecycle management:
 
 ### Prerequisites
 
-The gitflow finish jobs (`release-finish`, `hotfix-finish`) push branches and tags to the repository.
-You must grant write access by **one** of these methods:
-
-1. **CI_JOB_TOKEN (recommended):** Go to **Settings → CI/CD → Token permissions** and enable **"Allow CI/CD job tokens to push to this project's repository"**. No variables needed.
-2. **Dedicated token:** Create a Project Access Token with `write_repository` scope and set `TOMSHLEY_CICD_GIT_PUSH_TOKEN` as a masked CI/CD variable.
+The gitflow jobs push branches, tags, and merges to the repository.
+Go to **Settings → CI/CD → Job token permissions** and enable **“Allow Git push requests to the repository”**.
+No additional variables are needed — CI_JOB_TOKEN push auth is provided natively via CI_REPOSITORY_URL.
 
 ### Variables
 
-Set in **Settings > CI/CD > Variables**:
+Set in **Settings > CI/CD > Variables** (all optional):
 
-| Variable | Required | Description |
-|---|---|---|
-| `TOMSHLEY_CICD_GIT_PUSH_TOKEN` | Optional | Access token with `write_repository` scope (masked). Not needed if using CI_JOB_TOKEN push access. |
-| `TOMSHLEY_CICD_GIT_PUSH_USER` | Optional | Username for git push (defaults to `GITLAB_USER_LOGIN`) |
-| `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | Optional | Prefix for merge/tag commit messages (default: `"Tomshley CI Pipeline"`) |
-
-Fallback chain: `TOMSHLEY_CICD_GIT_PUSH_TOKEN` → `GL_PASSWORD` → `CI_JOB_TOKEN`
+| Variable | Description |
+|---|---|
+| `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | Prefix for merge/tag commit messages (default: `"Tomshley CI Pipeline"`) |
 
 ### Overriding Publish Extension Points
 

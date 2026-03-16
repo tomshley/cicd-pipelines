@@ -392,26 +392,15 @@ dependency_scanning:
 # Git Flow lifecycle jobs.
 # Consumers include this file to get automated release/hotfix flow management.
 #
-# Required CI/CD variables (set in project or group settings):
-#   TOMSHLEY_CICD_GIT_PUSH_TOKEN  — Access token with write_repository scope
-#   TOMSHLEY_CICD_GIT_PUSH_USER   — Username for git push
+# Prerequisites:
+#   Enable "Allow Git push requests to the repository" in
+#   Settings → CI/CD → Job token permissions.
+#   CI_JOB_TOKEN push auth is provided natively via CI_REPOSITORY_URL.
 #
-# Token fallback chain (resolved in before_script):
-#   Token: TOMSHLEY_CICD_GIT_PUSH_TOKEN → GL_PASSWORD → CI_JOB_TOKEN
-#   User:  TOMSHLEY_CICD_GIT_PUSH_USER  → GITLAB_USER_LOGIN → gitlab-ci-token
-#
-# If using CI_JOB_TOKEN (the default fallback), enable
-# "CI/CD job token can push to this project" in
-# Settings > CI/CD > Token Access.
-#
-# Optional:
+# Optional CI/CD variables:
 #   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for merge/tag messages
 #     Default: "Tomshley CI Pipeline"
 #     Override to customise commit messages, e.g. "Acme Corp"
-#
-# Security: If using TOMSHLEY_CICD_GIT_PUSH_TOKEN or GL_PASSWORD, mark the
-# variable as "Masked" in CI/CD settings to prevent credential exposure in
-# git error output. CI_JOB_TOKEN is masked by GitLab automatically.
 #
 # Note: flow-feature-start (auto-create MR) is NOT implemented here.
 # MR/PR creation APIs are fundamentally platform-specific (GitLab MR vs
@@ -430,7 +419,6 @@ dependency_scanning:
     GIT_STRATEGY: clone
     # Toolbox interface variables (mapped from GitLab CI environment)
     TOMSHLEY_CICD_PROJECT_DIR: "${CI_PROJECT_DIR}"
-    TOMSHLEY_CICD_PROJECT_URL: "${CI_PROJECT_URL}"
     TOMSHLEY_CICD_CURRENT_BRANCH: "${CI_COMMIT_BRANCH}"
     TOMSHLEY_CICD_TAG: "${CI_COMMIT_TAG}"
     TOMSHLEY_CICD_GIT_USER_EMAIL: "${GITLAB_USER_EMAIL}"
@@ -438,22 +426,7 @@ dependency_scanning:
   before_script:
     # download-secure-files is deprecated in GitLab 18.6; migrate to glab securefile download
     - curl --fail --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer" | bash || true
-    # GitLab token fallback chain: TOMSHLEY_CICD_GIT_PUSH_TOKEN → GL_PASSWORD → CI_JOB_TOKEN
-    - |
-      if [ -z "${TOMSHLEY_CICD_GIT_PUSH_TOKEN:-}" ]; then
-        if [ -n "${GL_PASSWORD:-}" ]; then
-          export TOMSHLEY_CICD_GIT_PUSH_TOKEN="${GL_PASSWORD}"
-        else
-          export TOMSHLEY_CICD_GIT_PUSH_TOKEN="${CI_JOB_TOKEN}"
-          export TOMSHLEY_CICD_GIT_PUSH_USER="gitlab-ci-token"
-        fi
-      fi
-      if [ -z "${TOMSHLEY_CICD_GIT_PUSH_USER:-}" ]; then
-        export TOMSHLEY_CICD_GIT_PUSH_USER="${GITLAB_USER_LOGIN:-gitlab-ci-token}"
-      fi
     - source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
-  after_script:
-    - rm -f "$(cat /tmp/.toolbox_askpass_path 2>/dev/null)" /tmp/.toolbox_askpass_path 2>/dev/null || true
 #endregion
 
 

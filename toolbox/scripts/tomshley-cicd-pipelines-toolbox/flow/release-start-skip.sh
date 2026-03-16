@@ -64,7 +64,7 @@ if git_remote_branch_exists "release/${EXISTING_RELEASE}"; then
     echo "[ok] Deleted remote branch: release/${EXISTING_RELEASE}"
     git fetch --prune 2>/dev/null || true
   else
-    log_fatal "Failed to delete release/${EXISTING_RELEASE} — check push token permissions"
+    log_fatal "Failed to delete release/${EXISTING_RELEASE} — check CI push permissions in your platform settings"
   fi
 else
   log_warn "release/${EXISTING_RELEASE} already deleted — proceeding with new release"
