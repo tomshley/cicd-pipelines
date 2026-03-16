@@ -11,11 +11,14 @@
 # (CI_*, GITLAB_*, BITBUCKET_*, etc.). The CI adapter YAML is responsible
 # for mapping platform-native variables into the canonical interface.
 #
+# Auth: This script does NOT handle git push authentication. CI platforms
+# provide push auth natively (GitLab CI_REPOSITORY_URL, Bitbucket
+# BITBUCKET_GIT_HTTP_ORIGIN). Enable push permissions in your CI settings:
+#   GitLab:    Settings → CI/CD → Token permissions → Allow Git push
+#   Bitbucket: Push back works by default (HTTP origin is preconfigured)
+#
 # Required environment variables (set by adapter YAML):
 #   TOMSHLEY_CICD_PROJECT_DIR      — Project root directory
-#   TOMSHLEY_CICD_PROJECT_URL      — Project URL (https://host/path, no .git suffix)
-#   TOMSHLEY_CICD_GIT_PUSH_TOKEN   — Access token with write scope
-#   TOMSHLEY_CICD_GIT_PUSH_USER    — Username for git push authentication
 #   TOMSHLEY_CICD_GIT_USER_EMAIL   — Git commit author email
 #   TOMSHLEY_CICD_GIT_USER_NAME    — Git commit author display name
 #
@@ -36,9 +39,6 @@ source "$TOOLBOX_DIR/lib/git.sh"
 
 # Validate required variables
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required — set by adapter YAML}"
-: "${TOMSHLEY_CICD_PROJECT_URL:?required — set by adapter YAML}"
-: "${TOMSHLEY_CICD_GIT_PUSH_TOKEN:?required — set by adapter YAML or CI/CD settings}"
-: "${TOMSHLEY_CICD_GIT_PUSH_USER:?required — set by adapter YAML or CI/CD settings}"
 : "${TOMSHLEY_CICD_GIT_USER_EMAIL:?required — set by adapter YAML}"
 : "${TOMSHLEY_CICD_GIT_USER_NAME:?required — set by adapter YAML}"
 
@@ -58,39 +58,13 @@ git_neutralize_lfs
 # Configure git user identity
 git_configure_user "${TOMSHLEY_CICD_GIT_USER_EMAIL}" "${TOMSHLEY_CICD_GIT_USER_NAME}"
 
-# Set authenticated remote URL via GIT_ASKPASS (avoids embedding token in .git/config)
-# NOTE: TOMSHLEY_CICD_PROJECT_URL must NOT contain embedded credentials (user@host);
-# adapter YAMLs guarantee this (CI_PROJECT_URL, BITBUCKET_REPO_FULL_NAME are bare).
-URL_NO_SCHEME=$(echo "${TOMSHLEY_CICD_PROJECT_URL}" | sed -E 's|https?://||')
-URL_NO_SCHEME="${URL_NO_SCHEME%.git}"
-git remote set-url origin "https://${TOMSHLEY_CICD_GIT_PUSH_USER}@${URL_NO_SCHEME}.git"
-
-# Clear any credential helpers/extraheaders set by CI runner (e.g. FF_USE_GIT_PROACTIVE_AUTH)
-# to prevent them from taking precedence over our ASKPASS mechanism.
-git config --global --unset-all credential.helper 2>/dev/null || true
+# Clear any credential helpers/extraheaders injected by the CI runner
+# (e.g. FF_USE_GIT_PROACTIVE_AUTH) to prevent them from being sent to
+# non-origin remotes such as HTTPS mirror targets.
 git config --global --unset-all http.extraheader 2>/dev/null || true
 
-_TOOLBOX_ASKPASS=$(mktemp)
-chmod 700 "$_TOOLBOX_ASKPASS"
-# Bake the token VALUE into the script (not the variable name) so the ASKPASS
-# subprocess doesn't depend on environment variable propagation.
-printf '#!/bin/sh\nprintf "%%s\\n" "'"${TOMSHLEY_CICD_GIT_PUSH_TOKEN}"'"\n' > "$_TOOLBOX_ASKPASS"
-export GIT_ASKPASS="$_TOOLBOX_ASKPASS"
+# Prevent git from prompting for credentials interactively (fail fast instead)
 export GIT_TERMINAL_PROMPT=0
-
-# Persist tempfile path so after_script (separate shell context) can clean up.
-# GitLab/Bitbucket after_script does NOT inherit exports from script phase,
-# so export -f and $_TOOLBOX_ASKPASS are unavailable there. Writing the path
-# to a known file lets the after_script find and remove the tempfile.
-echo "$_TOOLBOX_ASKPASS" > /tmp/.toolbox_askpass_path
-
-# Cleanup function — usable from script phase directly; after_script should
-# use: rm -f "$(cat /tmp/.toolbox_askpass_path 2>/dev/null)" /tmp/.toolbox_askpass_path 2>/dev/null || true
-toolbox_cleanup() {
-  rm -f "${_TOOLBOX_ASKPASS:-}" /tmp/.toolbox_askpass_path 2>/dev/null || true
-  unset GIT_ASKPASS _TOOLBOX_ASKPASS
-}
-export -f toolbox_cleanup
 
 # Derive tag detection from TOMSHLEY_CICD_TAG presence
 : "${TOMSHLEY_CICD_CURRENT_BRANCH:=}"
@@ -105,5 +79,6 @@ fi
 export TOMSHLEY_CICD_PROJECT_DIR
 export TOMSHLEY_CICD_CURRENT_BRANCH
 export TOMSHLEY_CICD_TAG
+export TOMSHLEY_CICD_IS_TAG
 
 # Shell options are restored automatically by the RETURN trap (line 31)

@@ -12,9 +12,8 @@ Variables are organized by who sets them and where they are used.
 
 | Variable | Required? | Default | Description |
 |----------|-----------|---------|-------------|
-| `TOMSHLEY_CICD_GIT_PUSH_TOKEN` | Yes (or platform fallback) | — | Access token with write_repository scope |
-| `TOMSHLEY_CICD_GIT_PUSH_USER` | No | platform-specific | Username for git push |
-| `TOMSHLEY_CICD_GIT_USER_EMAIL` | No | platform-specific | Git commit author email (Bitbucket: `${USER}@users.noreply.bitbucket.org`) |
+| `TOMSHLEY_CICD_GIT_USER_EMAIL` | No | platform-specific | Git commit author email (GitLab: `GITLAB_USER_EMAIL`, Bitbucket: `pipeline@noreply.bitbucket.org`) |
+| `TOMSHLEY_CICD_GIT_USER_NAME` | No | platform-specific | Git commit author display name (GitLab: `GITLAB_USER_NAME`, Bitbucket: `"Bitbucket Pipeline"`) |
 | `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | No | `"Tomshley CI Pipeline"` | Prefix for merge/tag commit messages |
 | `TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER` | No | `"[skip ci]"` | Marker appended to develop merge messages |
 
@@ -38,13 +37,10 @@ Set them in the adapter YAML (GitLab `variables:` block, Bitbucket `script` expo
 `platform/toolbox-entry.sh` validates that all required variables are present.
 
 | Variable | Required? | GitLab source | Bitbucket source |
-|----------|-----------|--------------|-----------------|
+|----------|-----------|--------------|------------------|
 | `TOMSHLEY_CICD_PROJECT_DIR` | Yes | `${CI_PROJECT_DIR}` | `${BITBUCKET_CLONE_DIR}` |
-| `TOMSHLEY_CICD_PROJECT_URL` | Yes | `${CI_PROJECT_URL}` | `https://bitbucket.org/${BITBUCKET_REPO_FULL_NAME}` |
-| `TOMSHLEY_CICD_GIT_PUSH_TOKEN` | Yes | Fallback: token → `GL_PASSWORD` → `CI_JOB_TOKEN` | Fallback: token → `BITBUCKET_REPO_ACCESS_TOKEN` |
-| `TOMSHLEY_CICD_GIT_PUSH_USER` | Yes | Fallback: user → `GITLAB_USER_LOGIN` → `gitlab-ci-token` | Fallback: user → `x-token-auth` (when using workspace token) |
-| `TOMSHLEY_CICD_GIT_USER_EMAIL` | Yes | `${GITLAB_USER_EMAIL}` | `${USER}@users.noreply.bitbucket.org` |
-| `TOMSHLEY_CICD_GIT_USER_NAME` | Yes | `${GITLAB_USER_NAME}` | `${TOMSHLEY_CICD_GIT_PUSH_USER}` |
+| `TOMSHLEY_CICD_GIT_USER_EMAIL` | Yes | `${GITLAB_USER_EMAIL}` | `pipeline@noreply.bitbucket.org` |
+| `TOMSHLEY_CICD_GIT_USER_NAME` | Yes | `${GITLAB_USER_NAME}` | `"Bitbucket Pipeline"` |
 | `TOMSHLEY_CICD_CURRENT_BRANCH` | No | `${CI_COMMIT_BRANCH}` | `${BITBUCKET_BRANCH}` |
 | `TOMSHLEY_CICD_TAG` | No | `${CI_COMMIT_TAG}` | `${BITBUCKET_TAG}` |
 
