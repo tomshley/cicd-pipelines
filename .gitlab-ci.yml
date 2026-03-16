@@ -3,34 +3,25 @@
 # Licensed under the Apache License, Version 2.0
 #
 # Internal CI for cicd-pipelines.
-# Runs conformance tests on every push, builds runner images on develop/release/tag.
+# Runs toolbox tests on every push, builds runner images on develop/release/tag.
 
 include:
-  - local: gitlab/ci/.stages-base.yml
-  - local: gitlab/ci/.gitflow-base.yml
-  - local: gitlab/ci/.gitflow-branch-policy.yml
-  - local: gitlab/ci/.gitflow-jobs.yml
-  - local: gitlab/ci/.artifact-tags.yml
-  - local: gitlab/ci/.container-tags.yml
-  - local: gitlab/ci/.artifact-publish-policy.yml
-  - local: gitlab/ci/.security-scanning.yml
-  - local: gitlab/ci/.docker-runtime.yml
+  - local: adapters/gitlab/ci/adapter.yml
 
 variables:
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
   BASE_CONTAINERS_UPSTREAM_TAG: 0.4.3
+  CICD_PIPELINES_RUNNER_TAG: "release-0-5-0-ce363548"
 
-# ── Conformance ──────────────────────────────────────────────────────────────
+# ── Toolbox Tests ────────────────────────────────────────────────────────────
 
-conformance:
+toolbox-tests:
   stage: .pre
   image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
   before_script:
-    - apk add --no-cache bash grep gawk
+    - apk add --no-cache bash git grep gawk
   script:
-    - bash common/tests/conformance.sh
-    - bash common/tests/validate-gitlab.sh
-    - bash common/tests/validate-bitbucket.sh
+    - bash toolbox/tests/run-all.sh
   rules:
     - when: always
 
@@ -85,7 +76,7 @@ conformance:
       fi
 
     # Buildx setup (idempotent)
-    - make -C gitlab createbuildx
+    - make createbuildx
 #endregion
 
 # ── Build Runner Images ──────────────────────────────────────────────────────
@@ -95,7 +86,7 @@ build-runner-images:
     - .tomshley-cicd-pipelines-runtime
   stage: build
   script:
-    - make -C gitlab build
+    - make build
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: never
@@ -119,5 +110,11 @@ publish-runner-images:
     - .flow-artifact-publish
   stage: deploy
   script:
-    - make -C gitlab push
+    - make push
 
+# ── Mirror Sync (disabled for cicd-pipelines itself) ────────────────────────
+# The adapter template defines tomshley-cicd-mirror-sync for consumer projects.
+# cicd-pipelines does not mirror, so override with when: never.
+tomshley-cicd-mirror-sync:
+  rules:
+    - when: never

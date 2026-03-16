@@ -6,6 +6,69 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.5.0
+
+### Breaking Changes
+
+**Three-Layer Architecture Migration** — Runtime templates deleted, replaced with toolbox + runner images.
+
+**Deleted templates** (consumers must remove these from their includes):
+- `.sbt-runtime.yml`
+- `.sbt-rust-runtime.yml`
+- `.sbt-allure-runtime.yml`
+- `.sbt-artifact-tags.yml`
+- `.sbt-docker-publish.yml`
+- `.terraform-runtime.yml`
+- `.terraform-module-publish.yml`
+- `.acceptance-runtime.yml`
+- `.docs-runtime.yml`
+
+**Renamed/replaced variables:**
+- `TOMSHLEY_CICD_GIT_PUSH_TOKEN` → `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` (now optional; native CI auth is default)
+- `TOMSHLEY_CICD_GIT_PUSH_USER` → `TOMSHLEY_CICD_FLOW_PUSH_USER` (adapter provides platform default, e.g. `oauth2` for GitLab)
+
+**Removed variables:**
+- `TOMSHLEY_CICD_PROJECT_URL` — removed; origin remote URL from CI clone is used as-is
+- `GL_PASSWORD` fallback — removed from token fallback chain
+- ASKPASS tempfile mechanism — removed; origin URL rewrite replaces it
+
+**Migration path:**
+1. Update includes from `/gitlab/ci/` to `/adapters/gitlab/ci/`
+2. Remove deleted runtime templates from your includes
+3. Use runner images with toolbox baked in (image variables switch from `BASE_CONTAINERS_*` to `CICD_PIPELINES_*`)
+4. Rename `TOMSHLEY_CICD_GIT_PUSH_TOKEN` → `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` in CI/CD variables (or remove if not needed — native CI auth works without it)
+5. Remove `TOMSHLEY_CICD_GIT_PUSH_USER` (adapter defaults handle this; only set `TOMSHLEY_CICD_FLOW_PUSH_USER` on Bitbucket with App Password)
+6. GitLab: enable "Allow Git push requests to the repository" in Settings → CI/CD → Job token permissions
+7. Pin `ref:` to `v0.5.0` or later
+
+**Bootstrapping note:** The initial v0.5.0 release uses `CICD_PIPELINES_RUNNER_TAG: "0.4.20"` as default (pre-toolbox runners) to allow the cicd-pipelines project to publish its own v0.5.0 runners. After runner images are published, a hotfix will update defaults to `0.5.0`. Consumers should explicitly set `CICD_PIPELINES_RUNNER_TAG: "0.5.0"` in their CI/CD variables when adopting v0.5.0 adapters.
+
+### Added
+- `toolbox/` — Platform-agnostic shell scripts packaged as OCI image
+- `toolbox/tests/` — Unit and integration test suite
+- `test-pinned-versions.sh` — Drift detection for PINNED_PIPELINE_VERSIONS
+- `test-flow-hotfix-lifecycle.sh` — Integration tests for hotfix-finish (auto-bump and skip-bump paths)
+- `test-flow-release-continue.sh` — Integration test for release-start → release-continue → release-finish lifecycle
+- `test-flow-release-cancel-new.sh` — Integration test for release-start → release-cancel-new → release-finish lifecycle
+- `test-flow-release-start-skip.sh` — Integration test for release-start → release-start-skip → release-finish lifecycle
+- `adapters/bitbucket/ci/adapter.yml` — Bitbucket adapter using toolbox scripts
+- Runner images now `COPY --from=toolbox` to get gitflow/mirror scripts at `/opt/tomshley-cicd-pipelines-toolbox/`
+
+### Changed
+- **Architecture:** Moved from monolithic inline-YAML-shell to three-layer (toolbox → runners → adapters)
+- **Directory structure:** Deleted `common/`, `gitlab/`, `bitbucket/`; added `toolbox/`, `runners/`, `adapters/`
+- **Adapter paths:** `/gitlab/ci/` → `/adapters/gitlab/ci/`
+- **Image variables:** `BASE_CONTAINERS_REGISTRY/TAG` → `CICD_PIPELINES_REGISTRY/RUNNER_TAG` in adapter YAMLs
+- Runners: Moved from `gitlab/runners/` to `runners/`, removed inline scripts
+- Build system: Moved `docker-bake.hcl` and `Makefile` to project root
+
+### Fixed
+- Stdout contamination in lib functions, force-push implementation, orphan branch handling, pinned-version drift detection, mirror early-exit on first failure, trailing newlines, release-cancel-new self-referential branch check
+- Added documentation comments in GitLab and Bitbucket adapters clarifying that publish extension points require `BASE_CONTAINERS_*` variables to be defined by consumers
+- Internal self-hosting release-branch bootstrap: documented and applied `CICD_PIPELINES_RUNNER_TAG` override to a published `develop-*` runner image so gitflow jobs do not block on unavailable pinned release images during `v0.5.0` cutover
+
+---
+
 ## v0.4.1
 
 ### Added
