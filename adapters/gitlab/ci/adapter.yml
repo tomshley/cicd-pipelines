@@ -423,6 +423,10 @@ dependency_scanning:
     TOMSHLEY_CICD_TAG: "${CI_COMMIT_TAG}"
     TOMSHLEY_CICD_GIT_USER_EMAIL: "${GITLAB_USER_EMAIL}"
     TOMSHLEY_CICD_GIT_USER_NAME: "${GITLAB_USER_NAME}"
+    # Flow push auth — default user for GitLab Project Access Tokens.
+    # Set TOMSHLEY_CICD_FLOW_PUSH_TOKEN as a masked CI/CD variable to
+    # enable pipeline triggering on pushed branches/tags.
+    TOMSHLEY_CICD_FLOW_PUSH_USER: "oauth2"
   before_script:
     # download-secure-files is deprecated in GitLab 18.6; migrate to glab securefile download
     - curl --fail --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer" | bash || true
@@ -628,19 +632,34 @@ tomshley-cicd-flow-hotfix-finish:
 
 
 #region Mirror Push Configuration
-# Extends git-push-config for image, tags, before_script, and base variables.
-# GitLab CI merges variables: blocks, so only mirror-specific vars are declared here.
+# Standalone config — intentionally does NOT extend .tomshley-cicd-git-push-config.
+# Mirror auth is completely separate from flow push auth (FLOW_PUSH_TOKEN/USER).
+# Mirror targets a different remote and uses its own credentials (SSH key or
+# HTTPS token embedded in MIRROR_URL).
 .tomshley-cicd-mirror-config:
-  extends:
-    - .tomshley-cicd-git-push-config
+  image: ${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
+  tags:
+    - saas-linux-small-amd64
   variables:
-    # Mirror-specific variables (added to inherited git-push-config variables)
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+    # Toolbox interface variables (mapped from GitLab CI environment)
+    TOMSHLEY_CICD_PROJECT_DIR: "${CI_PROJECT_DIR}"
+    TOMSHLEY_CICD_CURRENT_BRANCH: "${CI_COMMIT_BRANCH}"
+    TOMSHLEY_CICD_TAG: "${CI_COMMIT_TAG}"
+    TOMSHLEY_CICD_GIT_USER_EMAIL: "${GITLAB_USER_EMAIL}"
+    TOMSHLEY_CICD_GIT_USER_NAME: "${GITLAB_USER_NAME}"
+    # Mirror-specific variables
     TOMSHLEY_CICD_MIRROR_URL: ""
     TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
     TOMSHLEY_CICD_MIRROR_BRANCH_MAP: ""
     TOMSHLEY_CICD_MIRROR_TAGS: "true"
     TOMSHLEY_CICD_MIRROR_SSH_KEY: ""
     TOMSHLEY_CICD_MIRROR_FORCE_PUSH: "true"
+  before_script:
+    # download-secure-files is deprecated in GitLab 18.6; migrate to glab securefile download
+    - curl --fail --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer" | bash || true
+    - source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
 #endregion
 
 
