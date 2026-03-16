@@ -11,11 +11,17 @@
 # (CI_*, GITLAB_*, BITBUCKET_*, etc.). The CI adapter YAML is responsible
 # for mapping platform-native variables into the canonical interface.
 #
-# Auth: This script does NOT handle git push authentication. CI platforms
-# provide push auth natively (GitLab CI_REPOSITORY_URL, Bitbucket
-# BITBUCKET_GIT_HTTP_ORIGIN). Enable push permissions in your CI settings:
+# Auth: By default, CI platforms provide push auth natively (GitLab
+# CI_REPOSITORY_URL, Bitbucket BITBUCKET_GIT_HTTP_ORIGIN). Enable push
+# permissions in your CI settings:
 #   GitLab:    Settings → CI/CD → Token permissions → Allow Git push
 #   Bitbucket: Push back works by default (HTTP origin is preconfigured)
+#
+# On GitLab, CI_JOB_TOKEN pushes do NOT trigger downstream pipelines
+# (anti-cascade protection). To enable pipeline triggering on pushed
+# branches/tags, set TOMSHLEY_CICD_FLOW_PUSH_TOKEN to a Project Access
+# Token with write_repository scope. The adapter YAML provides a
+# platform-appropriate default for TOMSHLEY_CICD_FLOW_PUSH_USER.
 #
 # Required environment variables (set by adapter YAML):
 #   TOMSHLEY_CICD_PROJECT_DIR      — Project root directory
@@ -25,6 +31,8 @@
 # Optional environment variables (set by adapter YAML):
 #   TOMSHLEY_CICD_CURRENT_BRANCH   — Current branch name (empty on tag pipelines)
 #   TOMSHLEY_CICD_TAG              — Tag name (empty on branch pipelines)
+#   TOMSHLEY_CICD_FLOW_PUSH_TOKEN  — Token for git push (PAT, App Password, etc.)
+#   TOMSHLEY_CICD_FLOW_PUSH_USER   — Username for git push auth (default per platform)
 #
 # Derived (exported by this script):
 #   TOMSHLEY_CICD_IS_TAG           — "true" if TOMSHLEY_CICD_TAG is non-empty
@@ -62,6 +70,35 @@ git_configure_user "${TOMSHLEY_CICD_GIT_USER_EMAIL}" "${TOMSHLEY_CICD_GIT_USER_N
 # (e.g. FF_USE_GIT_PROACTIVE_AUTH) to prevent them from being sent to
 # non-origin remotes such as HTTPS mirror targets.
 git config --global --unset-all http.extraheader 2>/dev/null || true
+
+# Optional: rewrite origin URL with explicit credentials for flow push.
+# This enables pipeline triggering on platforms where CI token pushes
+# don't trigger downstream pipelines (e.g. GitLab anti-cascade protection).
+# If FLOW_PUSH_TOKEN is not set, native CI clone URL credentials are used.
+if [ -n "${TOMSHLEY_CICD_FLOW_PUSH_TOKEN:-}" ] && [ -n "${TOMSHLEY_CICD_FLOW_PUSH_USER:-}" ]; then
+  _ORIGIN_URL=$(git remote get-url origin)
+  case "$_ORIGIN_URL" in
+    https://*)
+      # Strip existing credentials (everything between :// and last @)
+      _ORIGIN_URL="${_ORIGIN_URL#https://}"
+      _ORIGIN_URL="${_ORIGIN_URL##*@}"
+      _ORIGIN_URL="https://${TOMSHLEY_CICD_FLOW_PUSH_USER}:${TOMSHLEY_CICD_FLOW_PUSH_TOKEN}@${_ORIGIN_URL}"
+      git remote set-url origin "$_ORIGIN_URL"
+      ;;
+    *)
+      _SCHEME="${_ORIGIN_URL%%://*}"
+      if [ "$_SCHEME" = "$_ORIGIN_URL" ]; then
+        _SCHEME="(non-scheme, e.g. SCP-style SSH)"
+      else
+        _SCHEME="${_SCHEME}://"
+      fi
+      log_warn "TOMSHLEY_CICD_FLOW_PUSH_TOKEN is set but origin URL is not HTTPS — token not applied"
+      log_warn "    Origin URL scheme: ${_SCHEME}"
+      unset _SCHEME
+      ;;
+  esac
+  unset _ORIGIN_URL
+fi
 
 # Prevent git from prompting for credentials interactively (fail fast instead)
 export GIT_TERMINAL_PROMPT=0

@@ -17,6 +17,7 @@ TOOLBOX_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$TOOLBOX_DIR/lib/log.sh"
 source "$TOOLBOX_DIR/lib/version.sh"
 source "$TOOLBOX_DIR/lib/git.sh"
+source "$TOOLBOX_DIR/lib/flow.sh"
 
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required}"
 : "${TOMSHLEY_CICD_CURRENT_BRANCH:?required}"

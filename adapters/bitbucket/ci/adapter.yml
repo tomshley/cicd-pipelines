@@ -22,6 +22,9 @@
 #     Default: "Bitbucket Pipeline"
 #   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for merge/tag messages
 #     Default: "Tomshley CI Pipeline"
+#   TOMSHLEY_CICD_FLOW_PUSH_TOKEN — App Password for git push (optional)
+#     Not needed on Bitbucket (native push triggers pipelines).
+#     If set, also set TOMSHLEY_CICD_FLOW_PUSH_USER to your Bitbucket username.
 #
 # See toolbox/VARIABLES.md for all available environment variables.
 

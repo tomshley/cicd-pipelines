@@ -68,8 +68,16 @@ The adapter includes automated gitflow lifecycle management:
 ### Prerequisites
 
 The gitflow jobs push branches, tags, and merges to the repository.
-Go to **Settings → CI/CD → Job token permissions** and enable **“Allow Git push requests to the repository”**.
-No additional variables are needed — CI_JOB_TOKEN push auth is provided natively via CI_REPOSITORY_URL.
+Go to **Settings → CI/CD → Job token permissions** and enable **"Allow Git push requests to the repository"**.
+
+**Pipeline triggering:** By default, CI_JOB_TOKEN push auth is used (via CI_REPOSITORY_URL).
+However, GitLab's anti-cascade protection means CI_JOB_TOKEN pushes do **not** trigger
+downstream pipelines. If you need pushed branches/tags to trigger pipelines (e.g. for
+tag-based deployments), create a **Project Access Token** with `write_repository` scope
+and set it as `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` in CI/CD variables (masked). The GitLab
+adapter provides a default `TOMSHLEY_CICD_FLOW_PUSH_USER` of `oauth2`.
+
+Bitbucket does not have this limitation — native pipeline pushes trigger pipelines by default.
 
 ### Variables
 
@@ -78,6 +86,8 @@ Set in **Settings > CI/CD > Variables** (all optional):
 | Variable | Description |
 |---|---|
 | `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | Prefix for merge/tag commit messages (default: `"Tomshley CI Pipeline"`) |
+| `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` | Token for flow push auth — enables pipeline triggering on GitLab (PAT with `write_repository`). Not needed on Bitbucket. |
+| `TOMSHLEY_CICD_FLOW_PUSH_USER` | Username for flow push auth (GitLab adapter defaults to `oauth2`). Set on Bitbucket if using App Password. |
 
 ### Overriding Publish Extension Points
 

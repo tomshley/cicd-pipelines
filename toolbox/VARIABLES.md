@@ -16,6 +16,8 @@ Variables are organized by who sets them and where they are used.
 | `TOMSHLEY_CICD_GIT_USER_NAME` | No | platform-specific | Git commit author display name (GitLab: `GITLAB_USER_NAME`, Bitbucket: `"Bitbucket Pipeline"`) |
 | `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | No | `"Tomshley CI Pipeline"` | Prefix for merge/tag commit messages |
 | `TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER` | No | `"[skip ci]"` | Marker appended to develop merge messages |
+| `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` | No | (unset) | Token for flow git push auth (GitLab PAT, Bitbucket App Password, GitHub PAT). When set with `FLOW_PUSH_USER`, overrides native CI clone URL credentials. Enables pipeline triggering on GitLab. |
+| `TOMSHLEY_CICD_FLOW_PUSH_USER` | No | platform-specific | Username for flow git push auth (GitLab adapter: `oauth2`). Only used when `FLOW_PUSH_TOKEN` is also set. |
 
 ### Mirror Variables (used by `mirror/sync.sh`)
 

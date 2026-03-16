@@ -23,20 +23,23 @@ This project follows Semantic Versioning.
 - `.acceptance-runtime.yml`
 - `.docs-runtime.yml`
 
-**Removed variables** (no longer needed — CI platforms provide push auth natively):
-- `TOMSHLEY_CICD_GIT_PUSH_TOKEN` — removed; GitLab uses `CI_REPOSITORY_URL`, Bitbucket uses `BITBUCKET_GIT_HTTP_ORIGIN`
-- `TOMSHLEY_CICD_GIT_PUSH_USER` — removed; no longer used for remote URL construction
+**Renamed/replaced variables:**
+- `TOMSHLEY_CICD_GIT_PUSH_TOKEN` → `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` (now optional; native CI auth is default)
+- `TOMSHLEY_CICD_GIT_PUSH_USER` → `TOMSHLEY_CICD_FLOW_PUSH_USER` (adapter provides platform default, e.g. `oauth2` for GitLab)
+
+**Removed variables:**
 - `TOMSHLEY_CICD_PROJECT_URL` — removed; origin remote URL from CI clone is used as-is
 - `GL_PASSWORD` fallback — removed from token fallback chain
-- ASKPASS tempfile mechanism — removed; `after_script` cleanup blocks no longer needed
+- ASKPASS tempfile mechanism — removed; origin URL rewrite replaces it
 
 **Migration path:**
 1. Update includes from `/gitlab/ci/` to `/adapters/gitlab/ci/`
 2. Remove deleted runtime templates from your includes
 3. Use runner images with toolbox baked in (image variables switch from `BASE_CONTAINERS_*` to `CICD_PIPELINES_*`)
-4. Remove `TOMSHLEY_CICD_GIT_PUSH_TOKEN` and `TOMSHLEY_CICD_GIT_PUSH_USER` from CI/CD variables (no longer used)
-5. GitLab: enable "Allow Git push requests to the repository" in Settings → CI/CD → Job token permissions
-6. Pin `ref:` to `v0.5.0` or later
+4. Rename `TOMSHLEY_CICD_GIT_PUSH_TOKEN` → `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` in CI/CD variables (or remove if not needed — native CI auth works without it)
+5. Remove `TOMSHLEY_CICD_GIT_PUSH_USER` (adapter defaults handle this; only set `TOMSHLEY_CICD_FLOW_PUSH_USER` on Bitbucket with App Password)
+6. GitLab: enable "Allow Git push requests to the repository" in Settings → CI/CD → Job token permissions
+7. Pin `ref:` to `v0.5.0` or later
 
 **Bootstrapping note:** The initial v0.5.0 release uses `CICD_PIPELINES_RUNNER_TAG: "0.4.20"` as default (pre-toolbox runners) to allow the cicd-pipelines project to publish its own v0.5.0 runners. After runner images are published, a hotfix will update defaults to `0.5.0`. Consumers should explicitly set `CICD_PIPELINES_RUNNER_TAG: "0.5.0"` in their CI/CD variables when adopting v0.5.0 adapters.
 
