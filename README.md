@@ -175,6 +175,24 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 | `cicd-runner-sbtallure` | JDK 21, SBT, Docker, Buildx, Allure 2.30 |
 | `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.83, Zig, Docker, Buildx, OpenTofu, Python 3 |
 
+## Container Registry Cleanup Policy (GitLab)
+
+Configured in **Settings → Packages and registries → Container registry → Cleanup policies**:
+
+| Setting | Value |
+|---|---|
+| Enable cleanup policy | Enabled |
+| Run cleanup | Every day |
+| Keep the most recent | 25 tags per image name |
+| Keep tags matching | `^\d+\.\d+\.\d+$|^develop-latest$|^main-latest$` |
+| Remove tags older than | 30 days |
+| Remove tags matching | `.*` |
+
+Notes:
+- Semver release tags (for example `0.5.0`) are retained by regex.
+- Rolling tags `develop-latest` and `main-latest` are retained.
+- Branch/SHA tags are automatically cleaned after 30 days.
+
 ## Local Development
 
     make test               # Toolbox tests
