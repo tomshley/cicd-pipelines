@@ -41,7 +41,11 @@ In your project's `.gitlab-ci.yml`:
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.5.0"   # pin to runner image version
+      CICD_PIPELINES_RUNNER_TAG: "0.5.0"   # pin to runner image version (match your ref)
+
+For self-hosting this repository before `0.5.0` runner images are published, temporarily
+override `CICD_PIPELINES_RUNNER_TAG` in this repo's `.gitlab-ci.yml` to a published
+`develop-*` tag.
 
 ## Git Flow Lifecycle Jobs
 
@@ -185,9 +189,10 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 
 ## Versioning
 
-- Version in `VERSION` file (bumped to `0.5.0` during release-start)
-- Consumer projects pin to `ref: 'v0.5.0'` in their includes
-- Runner images tagged with `TOMSHLEY_CICD_BUILD_REVISION`
+- `VERSION` file is the release source of truth (SemVer)
+- `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.5.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.5.0"`)
+- Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.
 
