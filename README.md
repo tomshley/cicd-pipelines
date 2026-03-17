@@ -5,7 +5,8 @@ Spec-driven, multi-CI-platform templates and runner images for Tomshley projects
 ## Architecture
 
     toolbox/                      Platform-agnostic shell scripts (OCI image)
-    ├── scripts/                  Gitflow, mirror, platform abstraction
+    ├── scripts/                  Gitflow, mirror, secrets, platform abstraction
+    │   └── secrets/              Pluggable secret delivery (gitlab, delinea, etc.)
     ├── tests/                    Unit + integration tests
     ├── Dockerfile                Toolbox OCI image (COPY'd into runners)
     └── VARIABLES.md              Environment variable documentation
@@ -37,15 +38,63 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.5.0'
+        ref: 'v0.5.2'
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.5.0"   # pin to runner image version (match your ref)
+      CICD_PIPELINES_RUNNER_TAG: "0.5.2"   # pin to runner image version (match your ref)
 
-For self-hosting this repository before `0.5.0` runner images are published, temporarily
+For self-hosting this repository before `0.5.2` runner images are published, temporarily
 override `CICD_PIPELINES_RUNNER_TAG` in this repo's `.gitlab-ci.yml` to a published
 `develop-*` tag.
+
+## Secrets Bootstrap
+
+The adapters provide a consumer-overridable secrets bootstrap mechanism before `toolbox-entry.sh` runs. GitLab downloads Secure Files into `.secure_files/` by default. Bitbucket runs a same-position bootstrap hook via `secrets/bitbucket-bootstrap.sh`; the default Bitbucket hook is a no-op placeholder that consumers replace with their own provider.
+
+### How it works
+
+1. GitLab: `.tomshley-cicd-secure-files` uses `secrets/gitlab-secure-files.sh` when the toolbox is present, and falls back to the GitLab installer in non-toolbox images
+2. Bitbucket: `&toolbox-setup` runs `secrets/bitbucket-bootstrap.sh` before `toolbox-entry.sh`; consumers replace that hook with their own provider when needed
+3. The provider contract is always the same: populate `.secure_files/` before `toolbox-entry.sh` runs
+4. `toolbox-entry.sh` sources `.secure_files/.env` to export secrets as environment variables
+
+On GitLab, secrets bootstrap runs by default in toolbox-based job chains: `.tomshley-cicd-bootstrap`, `.tomshley-cicd-git-push-config`, `.tomshley-cicd-mirror-config`. It is **not** added to `.before-artifact-tags` because that fragment feeds into `.tomshley-docker-runtime`, which uses base-containers images without the toolbox. On Bitbucket, the bootstrap hook runs in the shared `&toolbox-setup` anchor before every toolbox step.
+
+### Opt-out
+
+Set `TOMSHLEY_CICD_SECRETS_BOOTSTRAP` to `"false"` per-job or project-wide:
+
+    variables:
+      TOMSHLEY_CICD_SECRETS_BOOTSTRAP: "false"
+
+### Override with a different provider
+
+Consumers can override the default provider to use Delinea, Vault, or any other provider. The only contract is: populate `.secure_files/` before `toolbox-entry.sh` runs.
+
+GitLab:
+
+    .tomshley-cicd-secure-files:
+      before_script:
+        - /opt/tomshley-cicd-pipelines-toolbox/secrets/delinea.sh
+
+Bitbucket:
+
+    definitions:
+      yaml-anchors:
+        - &toolbox-setup |
+            export TOMSHLEY_CICD_PROJECT_DIR="${BITBUCKET_CLONE_DIR}"
+            export TOMSHLEY_CICD_CURRENT_BRANCH="${BITBUCKET_BRANCH:-}"
+            export TOMSHLEY_CICD_TAG="${BITBUCKET_TAG:-}"
+            export TOMSHLEY_CICD_GIT_USER_EMAIL="${TOMSHLEY_CICD_GIT_USER_EMAIL:-pipeline@noreply.bitbucket.org}"
+            export TOMSHLEY_CICD_GIT_USER_NAME="${TOMSHLEY_CICD_GIT_USER_NAME:-Bitbucket Pipeline}"
+            /opt/tomshley-cicd-pipelines-toolbox/secrets/delinea.sh
+            source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
+
+Available toolbox scripts:
+- `secrets/gitlab-secure-files.sh` — GitLab Secure Files (default)
+- `secrets/bitbucket-bootstrap.sh` — Bitbucket pre-`toolbox-entry.sh` hook (default no-op)
+- `secrets/delinea.sh` — Delinea (placeholder, not yet implemented)
 
 ## Git Flow Lifecycle Jobs
 
@@ -209,7 +258,7 @@ Notes:
 
 - `VERSION` file is the release source of truth (SemVer)
 - `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
-- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.5.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.5.0"`)
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.5.2'` and `CICD_PIPELINES_RUNNER_TAG: "0.5.2"`)
 - Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.

@@ -11,7 +11,7 @@
 # Usage in consumer .gitlab-ci.yml:
 #   include:
 #     - project: 'tomshley/.../cicd-pipelines'
-#       ref: 'v0.5.0'
+#       ref: 'v0.5.2'
 #       file: '/adapters/gitlab/ci/adapter.yml'
 
 
@@ -55,7 +55,7 @@ variables:
   SECRET_DETECTION_ENABLED: 'true'
   DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
   CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
-  CICD_PIPELINES_RUNNER_TAG: "0.4.20"
+  CICD_PIPELINES_RUNNER_TAG: "0.5.2"
 #endregion
 
 
@@ -151,12 +151,46 @@ workflow:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Secrets Bootstrap (consumer-overridable)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Secrets Bootstrap
+# Default: GitLab Secure Files. Consumers override this hidden job in their
+# .gitlab-ci.yml to use a different provider (Delinea, Vault, etc.).
+# Contract: populate .secure_files/ before toolbox-entry.sh runs.
+# Opt-out: set TOMSHLEY_CICD_SECRETS_BOOTSTRAP=false (per-job or project-wide).
+.tomshley-cicd-secure-files:
+  before_script:
+    - |
+      if [ "${TOMSHLEY_CICD_SECRETS_BOOTSTRAP:-true}" != "true" ]; then
+        echo "INFO:  Secrets bootstrap skipped (TOMSHLEY_CICD_SECRETS_BOOTSTRAP=${TOMSHLEY_CICD_SECRETS_BOOTSTRAP})"
+      elif [ -x /opt/tomshley-cicd-pipelines-toolbox/secrets/gitlab-secure-files.sh ]; then
+        /opt/tomshley-cicd-pipelines-toolbox/secrets/gitlab-secure-files.sh
+      elif command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
+        if _secure_files_installer="$(mktemp 2>/dev/null)"; then
+          if curl --fail --silent --show-error -o "${_secure_files_installer}" "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer"; then
+            bash "${_secure_files_installer}" || echo "WARN:  GitLab Secure Files installer execution failed — continuing" >&2
+          else
+            echo "WARN:  GitLab Secure Files installer download failed — continuing" >&2
+          fi
+          rm -f "${_secure_files_installer}"
+        else
+          echo "WARN:  mktemp unavailable — skipping GitLab Secure Files bootstrap" >&2
+        fi
+      else
+        echo "WARN:  Secrets bootstrap requested but toolbox script is unavailable and curl/bash fallback is unavailable — continuing" >&2
+      fi
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Bootstrap (to be extended by consumers)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 #region Bootstrap
 .tomshley-cicd-bootstrap:
   before_script:
+    - !reference [.tomshley-cicd-secure-files, before_script]
     - !reference [.tomshley-cicd-debug, before_script]
     - export TOMSHLEY_CICD_BUILD_VERSION="$(cat ${CI_PROJECT_DIR}/VERSION 2>/dev/null || echo 'dev')"
     - echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"
@@ -428,8 +462,7 @@ dependency_scanning:
     # enable pipeline triggering on pushed branches/tags.
     TOMSHLEY_CICD_FLOW_PUSH_USER: "oauth2"
   before_script:
-    # download-secure-files is deprecated in GitLab 18.6; migrate to glab securefile download
-    - curl --fail --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer" | bash || true
+    - !reference [.tomshley-cicd-secure-files, before_script]
     - source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
 #endregion
 
@@ -657,8 +690,7 @@ tomshley-cicd-flow-hotfix-finish:
     TOMSHLEY_CICD_MIRROR_SSH_KEY: ""
     TOMSHLEY_CICD_MIRROR_FORCE_PUSH: "true"
   before_script:
-    # download-secure-files is deprecated in GitLab 18.6; migrate to glab securefile download
-    - curl --fail --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer" | bash || true
+    - !reference [.tomshley-cicd-secure-files, before_script]
     - source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
 #endregion
 
