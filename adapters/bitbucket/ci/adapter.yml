@@ -6,7 +6,7 @@
 # Copy to consumer repo as bitbucket-pipelines.yml and customize the image tag.
 #
 # Required repository variables (Settings > Pipelines > Repository variables):
-#   CICD_PIPELINES_RUNNER_TAG    — Runner image tag (e.g., 0.5.0)
+#   CICD_PIPELINES_RUNNER_TAG    — Runner image tag (e.g., 0.5.2)
 #   REGISTRY_USER                — Registry username for pulling runner image
 #   REGISTRY_TOKEN               — Registry token/password for pulling runner image
 #
@@ -25,6 +25,8 @@
 #   TOMSHLEY_CICD_FLOW_PUSH_TOKEN — App Password for git push (optional)
 #     Not needed on Bitbucket (native push triggers pipelines).
 #     If set, also set TOMSHLEY_CICD_FLOW_PUSH_USER to your Bitbucket username.
+#   TOMSHLEY_CICD_SECRETS_BOOTSTRAP — Set to "false" to skip the pre-toolbox
+#     secrets hook (default: "true")
 #
 # See toolbox/VARIABLES.md for all available environment variables.
 
@@ -37,6 +39,9 @@ definitions:
         export TOMSHLEY_CICD_TAG="${BITBUCKET_TAG:-}"
         export TOMSHLEY_CICD_GIT_USER_EMAIL="${TOMSHLEY_CICD_GIT_USER_EMAIL:-pipeline@noreply.bitbucket.org}"
         export TOMSHLEY_CICD_GIT_USER_NAME="${TOMSHLEY_CICD_GIT_USER_NAME:-Bitbucket Pipeline}"
+        # Default Bitbucket secrets hook: no-op unless the consumer replaces it
+        # with a provider that populates .secure_files/ before toolbox-entry.sh.
+        /opt/tomshley-cicd-pipelines-toolbox/secrets/bitbucket-bootstrap.sh
         source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
 
 image:

@@ -8,6 +8,12 @@ Variables are organized by who sets them and where they are used.
 
 ## Consumer Variables (you set these)
 
+### Secrets Bootstrap Variables (used by `secrets/*.sh`)
+
+| Variable | Required? | Default | Description |
+|----------|-----------|---------|-------------|
+| `TOMSHLEY_CICD_SECRETS_BOOTSTRAP` | No | `"true"` | Set to `"false"` to skip secrets bootstrap (per-job or project-wide). On GitLab, the default provider downloads Secure Files. On Bitbucket, the default pre-`toolbox-entry.sh` hook is a no-op placeholder. In both adapters, the provider contract is the same: populate `.secure_files/` before `toolbox-entry.sh` sources `.secure_files/.env`. |
+
 ### Flow Variables (used by `flow/*.sh`)
 
 | Variable | Required? | Default | Description |
