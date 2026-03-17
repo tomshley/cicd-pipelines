@@ -14,4 +14,4 @@ BASE_CONTAINERS_UPSTREAM_TAG=0.4.3
 
 # CI/CD Pipelines runner image registry and tag (for gitflow/mirror adapters)
 CICD_PIPELINES_REGISTRY=registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
-CICD_PIPELINES_RUNNER_TAG=0.4.20
+CICD_PIPELINES_RUNNER_TAG=0.5.2

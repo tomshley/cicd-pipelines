@@ -6,6 +6,29 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.5.2
+
+### Added
+- `secrets/gitlab-secure-files.sh` — Toolbox script wrapping the GitLab Secure Files installer with `TOMSHLEY_CICD_SECRETS_BOOTSTRAP` guard variable and graceful no-op behavior.
+- `secrets/bitbucket-bootstrap.sh` — Default Bitbucket pre-`toolbox-entry.sh` hook. No-op placeholder that preserves the secrets-bootstrap lifecycle position for consumer-provided providers.
+- `secrets/delinea.sh` — Placeholder for future Delinea secrets provider integration.
+- `.tomshley-cicd-secure-files` hidden job in GitLab adapter — consumer-overridable secrets bootstrap. Uses the toolbox script when available and falls back to the GitLab installer in non-toolbox images. Override to use Delinea, Vault, or any other provider.
+- `TOMSHLEY_CICD_SECRETS_BOOTSTRAP` variable — set to `"false"` (per-job or project-wide) to skip secrets download.
+
+### Changed
+- Secrets bootstrap now runs before `toolbox-entry.sh` in both adapters. On GitLab it runs in toolbox-based job chains: `.tomshley-cicd-bootstrap`, `.tomshley-cicd-git-push-config`, `.tomshley-cicd-mirror-config`. Not added to `.before-artifact-tags` because it feeds into `.tomshley-docker-runtime` which uses base-containers images without the toolbox. On Bitbucket it runs in the shared `&toolbox-setup` anchor.
+- Replaced `curl | bash` installer execution with tempfile download + explicit execution to make download failures observable in both toolbox and non-toolbox bootstrap paths.
+- Removed inline `curl | bash` from `.tomshley-cicd-git-push-config` and `.tomshley-cicd-mirror-config` — replaced with `!reference [.tomshley-cicd-secure-files, before_script]` (DRY).
+
+---
+
+## v0.5.1
+
+### Fixed
+- Self-hosting release bootstrap: pinned this repository's internal `.gitlab-ci.yml` runner override to the published `0.5.0` runner image so the `v0.5.1` release pipeline could build and publish the new tag before consumer defaults moved forward.
+
+---
+
 ## v0.5.0
 
 ### Breaking Changes
