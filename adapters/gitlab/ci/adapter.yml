@@ -11,7 +11,7 @@
 # Usage in consumer .gitlab-ci.yml:
 #   include:
 #     - project: 'tomshley/.../cicd-pipelines'
-#       ref: 'v0.5.2'
+#       ref: 'v0.5.3'
 #       file: '/adapters/gitlab/ci/adapter.yml'
 
 
@@ -55,7 +55,7 @@ variables:
   SECRET_DETECTION_ENABLED: 'true'
   DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
   CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
-  CICD_PIPELINES_RUNNER_TAG: "0.5.2"
+  CICD_PIPELINES_RUNNER_TAG: "0.5.3"
 #endregion
 
 
@@ -383,10 +383,12 @@ workflow:
         docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
       fi
     - |
-      BUILDX_NAME="${CI_PROJECT_NAME}_buildx"
-      docker buildx inspect "$BUILDX_NAME" >/dev/null 2>&1 || \
-        docker buildx create --name "$BUILDX_NAME" --driver docker-container --use
-      docker buildx inspect "$BUILDX_NAME" --bootstrap
+      if [ -x /opt/tomshley-cicd-pipelines-toolbox/docker/buildx-setup.sh ]; then
+        /opt/tomshley-cicd-pipelines-toolbox/docker/buildx-setup.sh
+      else
+        docker buildx use default
+        docker buildx inspect default --bootstrap
+      fi
 #endregion
 
 

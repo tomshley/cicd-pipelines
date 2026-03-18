@@ -12,9 +12,9 @@ variables:
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
   BASE_CONTAINERS_UPSTREAM_TAG: 0.4.3
   # Intentional self-hosting bootstrap pin:
-  # keep using the last published runner image until the v0.5.2 tag pipeline
+  # keep using the last published runner image until the v0.5.3 tag pipeline
   # publishes the new toolbox-based runner image.
-  CICD_PIPELINES_RUNNER_TAG: "0.5.1"
+  CICD_PIPELINES_RUNNER_TAG: "0.5.2"
 
 # ── Toolbox Tests ────────────────────────────────────────────────────────────
 
