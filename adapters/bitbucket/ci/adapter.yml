@@ -6,7 +6,7 @@
 # Copy to consumer repo as bitbucket-pipelines.yml and customize the image tag.
 #
 # Required repository variables (Settings > Pipelines > Repository variables):
-#   CICD_PIPELINES_RUNNER_TAG    — Runner image tag (e.g., 0.5.2)
+#   CICD_PIPELINES_RUNNER_TAG    — Runner image tag (e.g., 0.5.3)
 #   REGISTRY_USER                — Registry username for pulling runner image
 #   REGISTRY_TOKEN               — Registry token/password for pulling runner image
 #
