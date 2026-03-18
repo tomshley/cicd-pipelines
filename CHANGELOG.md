@@ -6,6 +6,19 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.5.3
+
+### Added
+- `docker/buildx-setup.sh` — Toolbox script for platform-agnostic Buildx builder setup. Uses the default builder instead of creating a nested `docker-container` builder, which requires `sysfs` mount that rootless DinD cannot provide. Called by any adapter that runs Docker builds inside rootless DinD (GitLab, Bitbucket, GitHub Actions, etc.).
+
+### Fixed
+- GitLab adapter `.tomshley-docker-runtime` now calls the toolbox `docker/buildx-setup.sh` when available, with an inline fallback for base-containers images that don't have the toolbox. Restores `publish:docker` jobs on GitLab SaaS runners where the nested BuildKit container failed with `operation not permitted` on `sysfs` mount.
+
+### Changed
+- Internal self-hosting bootstrap pin in this repository's `.gitlab-ci.yml` now points to runner image `0.5.2` while the `v0.5.3` tag pipeline publishes the updated runner images.
+
+---
+
 ## v0.5.2
 
 ### Added
