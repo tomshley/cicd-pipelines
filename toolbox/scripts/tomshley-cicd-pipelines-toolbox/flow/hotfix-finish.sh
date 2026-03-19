@@ -13,7 +13,11 @@
 #   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX  — commit message prefix
 #   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — skip-ci marker for develop merges
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "${BASH_VERSION:-}" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  SCRIPT_DIR="${TOMSHLEY_CICD_TOOLBOX_ROOT:-/opt/tomshley-cicd-pipelines-toolbox}/flow"
+fi
 TOOLBOX_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$TOOLBOX_DIR/lib/log.sh"
 source "$TOOLBOX_DIR/lib/version.sh"

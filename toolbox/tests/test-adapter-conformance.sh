@@ -33,8 +33,8 @@ GITLAB_ADAPTER="$PROJECT_ROOT/adapters/gitlab/ci/adapter.yml"
 BITBUCKET_ADAPTER="$PROJECT_ROOT/adapters/bitbucket/ci/adapter.yml"
 
 # Extract toolbox script paths from each adapter (sorted, unique, one per line)
-GL_SCRIPTS=$(grep -oE '/opt/tomshley-cicd-pipelines-toolbox/(flow|mirror)/[a-z-]+\.sh' "$GITLAB_ADAPTER" | sort -u)
-BB_SCRIPTS=$(grep -oE '/opt/tomshley-cicd-pipelines-toolbox/(flow|mirror)/[a-z-]+\.sh' "$BITBUCKET_ADAPTER" | sort -u)
+GL_SCRIPTS=$(grep -oE '\$\{TOMSHLEY_CICD_TOOLBOX_ROOT\}/(flow|mirror)/[a-z-]+\.sh' "$GITLAB_ADAPTER" | sed 's|^${TOMSHLEY_CICD_TOOLBOX_ROOT}/||' | sort -u)
+BB_SCRIPTS=$(grep -oE '\$\{TOMSHLEY_CICD_TOOLBOX_ROOT\}/(flow|mirror)/[a-z-]+\.sh' "$BITBUCKET_ADAPTER" | sed 's|^${TOMSHLEY_CICD_TOOLBOX_ROOT}/||' | sort -u)
 
 assert_equal "Toolbox script sets match" "$GL_SCRIPTS" "$BB_SCRIPTS"
 
