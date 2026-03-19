@@ -138,7 +138,7 @@ pipelines:
             - *toolbox-debug
             - *toolbox-core-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start.sh"
     release-continue:
       - step:
           name: "Release Continue"
@@ -147,7 +147,7 @@ pipelines:
             - *toolbox-debug
             - *toolbox-core-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-continue.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-continue.sh"
     release-cancel-new:
       - step:
           name: "Release Cancel and New"
@@ -156,7 +156,7 @@ pipelines:
             - *toolbox-debug
             - *toolbox-core-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-cancel-new.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-cancel-new.sh"
     release-start-skip:
       - step:
           name: "Release Start Skip"
@@ -165,7 +165,7 @@ pipelines:
             - *toolbox-debug
             - *toolbox-core-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start-skip.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start-skip.sh"
     release-finish:
       - step:
           name: "Release Finish"
@@ -174,7 +174,7 @@ pipelines:
             - *toolbox-debug
             - *toolbox-core-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-finish.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-finish.sh"
     # Extension point: release-publish
     # All Bitbucket custom pipelines are manual by default, matching GitLab's when: manual.
     # This is a no-op extension point — consumers override the script block to add
@@ -208,7 +208,7 @@ pipelines:
             - *toolbox-debug
             - *toolbox-core-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/hotfix-finish.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/hotfix-finish.sh"
     mirror-sync:
       - step:
           name: "Mirror Sync"
@@ -218,4 +218,4 @@ pipelines:
             - *toolbox-core-env
             - *toolbox-mirror-env
             - *toolbox-bootstrap
-            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
