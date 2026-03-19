@@ -42,8 +42,8 @@ if [ -n "${BASH_VERSION:-}" ]; then
   _toolbox_entry_restore() { eval "$_TOOLBOX_ENTRY_OLDOPTS"; unset _TOOLBOX_ENTRY_OLDOPTS; trap - RETURN ERR; }
   trap '_toolbox_entry_restore' ERR RETURN
 else
-  # POSIX fallback: no pipefail, no RETURN trap
-  set -eu
+  # POSIX fallback: no pipefail, no RETURN trap, no -u (would leak into caller)
+  set -e
 fi
 if [ -n "${BASH_VERSION:-}" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
