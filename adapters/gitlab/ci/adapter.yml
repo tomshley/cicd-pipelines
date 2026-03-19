@@ -504,7 +504,7 @@ tomshley-cicd-flow-release-start:
       when: manual
   allow_failure: false
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start.sh"
 #endregion
 
 
@@ -520,7 +520,7 @@ tomshley-cicd-flow-release-continue:
       when: manual
   allow_failure: false
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-continue.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-continue.sh"
 #endregion
 
 
@@ -536,7 +536,7 @@ tomshley-cicd-flow-release-cancel-new:
       when: manual
   allow_failure: false
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-cancel-new.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-cancel-new.sh"
 #endregion
 
 
@@ -552,7 +552,7 @@ tomshley-cicd-flow-release-start-skip:
       when: manual
   allow_failure: false
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start-skip.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start-skip.sh"
 #endregion
 
 
@@ -598,7 +598,7 @@ tomshley-cicd-flow-release-finish:
       when: manual
   allow_failure: false
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-finish.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-finish.sh"
 #endregion
 
 
@@ -644,7 +644,7 @@ tomshley-cicd-flow-hotfix-finish:
       when: manual
   allow_failure: false
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/hotfix-finish.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/hotfix-finish.sh"
 #endregion
 
 
@@ -737,6 +737,6 @@ tomshley-cicd-mirror-sync:
       when: on_success
   allow_failure: true
   script:
-    - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
 
 #endregion
