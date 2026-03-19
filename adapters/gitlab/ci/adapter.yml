@@ -450,7 +450,6 @@ dependency_scanning:
   image: ${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
   tags:
     - saas-linux-small-amd64
-  dependencies: []
   variables:
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
@@ -676,7 +675,6 @@ tomshley-cicd-flow-hotfix-finish:
   image: ${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
   tags:
     - saas-linux-small-amd64
-  dependencies: []
   variables:
     GIT_DEPTH: 0
     GIT_STRATEGY: clone
