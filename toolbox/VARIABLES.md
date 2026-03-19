@@ -44,6 +44,10 @@ These map platform-native CI variables to the toolbox interface.
 Set them in the adapter YAML (GitLab `variables:` block, Bitbucket `script` exports).
 `platform/toolbox-entry.sh` validates that all required variables are present.
 
+| Variable | Required? | Default | Description |
+|----------|-----------|---------|-------------|
+| `TOMSHLEY_CICD_TOOLBOX_ROOT` | No | `/opt/tomshley-cicd-pipelines-toolbox` | Root path to the toolbox scripts. Override this to use a checkout-local toolbox tree, for example `${CI_PROJECT_DIR}/toolbox/scripts/tomshley-cicd-pipelines-toolbox` in self-hosting pipelines. |
+
 | Variable | Required? | GitLab source | Bitbucket source |
 |----------|-----------|--------------|------------------|
 | `TOMSHLEY_CICD_PROJECT_DIR` | Yes | `${CI_PROJECT_DIR}` | `${BITBUCKET_CLONE_DIR}` |
@@ -67,6 +71,7 @@ and are NOT handled by the toolbox scripts.
 
 | Variable | Purpose |
 |----------|---------|
+| `CICD_PIPELINES_FLOW_IMAGE` | Image used by GitLab flow and mirror jobs. Defaults to the published runner image for consumers, but can be overridden to a compatible Alpine-based image with `git`, `bash`, and `curl` preinstalled or installable via `apk`. |
 | `TOMSHLEY_CICD_FLOW_TYPE` | Flow type derived from branch pattern matching (e.g. `feature`, `release`, `hotfix`, `develop`, `main`, `tag`) |
 | `TOMSHLEY_CICD_BUILD_REVISION` | SHA-based revision suffix for build versioning |
 | `TOMSHLEY_CICD_BUILD_VERSION` | Full build version (read from `VERSION` file by adapter bootstrap) |
