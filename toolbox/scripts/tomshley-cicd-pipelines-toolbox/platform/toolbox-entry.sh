@@ -37,10 +37,19 @@
 # Derived (exported by this script):
 #   TOMSHLEY_CICD_IS_TAG           — "true" if TOMSHLEY_CICD_TAG is non-empty
 
-_TOOLBOX_ENTRY_OLDOPTS=$(set +o); set -euo pipefail
-_toolbox_entry_restore() { eval "$_TOOLBOX_ENTRY_OLDOPTS"; unset _TOOLBOX_ENTRY_OLDOPTS; trap - RETURN ERR; }
-trap '_toolbox_entry_restore' ERR RETURN
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "${BASH_VERSION:-}" ]; then
+  _TOOLBOX_ENTRY_OLDOPTS=$(set +o); set -euo pipefail
+  _toolbox_entry_restore() { eval "$_TOOLBOX_ENTRY_OLDOPTS"; unset _TOOLBOX_ENTRY_OLDOPTS; trap - RETURN ERR; }
+  trap '_toolbox_entry_restore' ERR RETURN
+else
+  # POSIX fallback: no pipefail, no RETURN trap
+  set -eu
+fi
+if [ -n "${BASH_VERSION:-}" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  SCRIPT_DIR="${TOMSHLEY_CICD_TOOLBOX_ROOT:-/opt/tomshley-cicd-pipelines-toolbox}/platform"
+fi
 TOOLBOX_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$TOOLBOX_DIR/lib/log.sh"
 source "$TOOLBOX_DIR/lib/git.sh"

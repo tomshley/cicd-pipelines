@@ -32,20 +32,96 @@
 
 definitions:
   yaml-anchors:
-    # Map Bitbucket variables to toolbox interface (defined once, referenced per step)
-    - &toolbox-setup |
+    - &flow-image-name registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
+    - &toolbox-ensure-tools |
+        if ! command -v git >/dev/null 2>&1 || ! command -v bash >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
+          if command -v apk >/dev/null 2>&1; then
+            apk add --no-cache bash git openssh-client curl
+          else
+            echo "ERROR: required tools missing (git, bash, curl) and apk is unavailable; use an Alpine-based flow image or preinstall the tools" >&2
+            exit 1
+          fi
+        fi
+    - &toolbox-debug |
+        _TOMSHLEY_CICD_SHORT_SHA="$(printf '%s' "${BITBUCKET_COMMIT:-}" | cut -c1-8)"
+        if [ -n "${_TOMSHLEY_CICD_SHORT_SHA}" ]; then
+          _TOMSHLEY_CICD_BUILD_SUFFIX="${_TOMSHLEY_CICD_SHORT_SHA}"
+        else
+          _TOMSHLEY_CICD_BUILD_SUFFIX="dev"
+        fi
+        if [ -n "${BITBUCKET_TAG:-}" ]; then
+          export TOMSHLEY_CICD_FLOW_TYPE="tag"
+          export TOMSHLEY_CICD_BUILD_REVISION=""
+        else
+          case "${BITBUCKET_BRANCH:-}" in
+            develop)
+              export TOMSHLEY_CICD_FLOW_TYPE="develop"
+              export TOMSHLEY_CICD_BUILD_REVISION="develop-${_TOMSHLEY_CICD_BUILD_SUFFIX}"
+              ;;
+            main|master)
+              export TOMSHLEY_CICD_FLOW_TYPE="main"
+              export TOMSHLEY_CICD_BUILD_REVISION="prod-${_TOMSHLEY_CICD_BUILD_SUFFIX}"
+              ;;
+            feature/*)
+              export TOMSHLEY_CICD_FLOW_TYPE="feature"
+              export TOMSHLEY_CICD_BUILD_REVISION="feature-${_TOMSHLEY_CICD_BUILD_SUFFIX}"
+              ;;
+            hotfix/*)
+              export TOMSHLEY_CICD_FLOW_TYPE="hotfix"
+              export TOMSHLEY_CICD_BUILD_REVISION="hotfix-${_TOMSHLEY_CICD_BUILD_SUFFIX}"
+              ;;
+            release/*)
+              export TOMSHLEY_CICD_FLOW_TYPE="release"
+              export TOMSHLEY_CICD_BUILD_REVISION="rc-${_TOMSHLEY_CICD_BUILD_SUFFIX}"
+              ;;
+            "")
+              export TOMSHLEY_CICD_FLOW_TYPE="${TOMSHLEY_CICD_FLOW_TYPE:-unknown}"
+              export TOMSHLEY_CICD_BUILD_REVISION="${TOMSHLEY_CICD_BUILD_REVISION:-${_TOMSHLEY_CICD_BUILD_SUFFIX}}"
+              ;;
+            *)
+              export TOMSHLEY_CICD_FLOW_TYPE="unknown"
+              export TOMSHLEY_CICD_BUILD_REVISION="${_TOMSHLEY_CICD_BUILD_SUFFIX}"
+              ;;
+          esac
+        fi
+        echo "=== CI/CD Git Flow ==="
+        echo "Ref             : ${BITBUCKET_BRANCH:-${BITBUCKET_TAG:-N/A}}"
+        echo "Tag             : ${BITBUCKET_TAG:-}"
+        echo "Flow Type       : ${TOMSHLEY_CICD_FLOW_TYPE}"
+        echo "Build Revision  : ${TOMSHLEY_CICD_BUILD_REVISION}"
+        unset _TOMSHLEY_CICD_BUILD_SUFFIX
+        unset _TOMSHLEY_CICD_SHORT_SHA
+    - &toolbox-core-env |
+        export TOMSHLEY_CICD_TOOLBOX_ROOT="${TOMSHLEY_CICD_TOOLBOX_ROOT:-/opt/tomshley-cicd-pipelines-toolbox}"
         export TOMSHLEY_CICD_PROJECT_DIR="${BITBUCKET_CLONE_DIR}"
         export TOMSHLEY_CICD_CURRENT_BRANCH="${BITBUCKET_BRANCH:-}"
         export TOMSHLEY_CICD_TAG="${BITBUCKET_TAG:-}"
         export TOMSHLEY_CICD_GIT_USER_EMAIL="${TOMSHLEY_CICD_GIT_USER_EMAIL:-pipeline@noreply.bitbucket.org}"
         export TOMSHLEY_CICD_GIT_USER_NAME="${TOMSHLEY_CICD_GIT_USER_NAME:-Bitbucket Pipeline}"
-        # Default Bitbucket secrets hook: no-op unless the consumer replaces it
-        # with a provider that populates .secure_files/ before toolbox-entry.sh.
-        /opt/tomshley-cicd-pipelines-toolbox/secrets/bitbucket-bootstrap.sh
-        source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
+        export TOMSHLEY_CICD_FLOW_PUSH_USER="${TOMSHLEY_CICD_FLOW_PUSH_USER:-}"
+    - &toolbox-mirror-env |
+        export TOMSHLEY_CICD_MIRROR_URL="${TOMSHLEY_CICD_MIRROR_URL:-}"
+        export TOMSHLEY_CICD_MIRROR_BRANCHES="${TOMSHLEY_CICD_MIRROR_BRANCHES:-main}"
+        export TOMSHLEY_CICD_MIRROR_BRANCH_MAP="${TOMSHLEY_CICD_MIRROR_BRANCH_MAP:-}"
+        export TOMSHLEY_CICD_MIRROR_TAGS="${TOMSHLEY_CICD_MIRROR_TAGS:-true}"
+        export TOMSHLEY_CICD_MIRROR_SSH_KEY="${TOMSHLEY_CICD_MIRROR_SSH_KEY:-}"
+        export TOMSHLEY_CICD_MIRROR_FORCE_PUSH="${TOMSHLEY_CICD_MIRROR_FORCE_PUSH:-true}"
+    - &toolbox-bootstrap |
+        if [ -x "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/bitbucket-bootstrap.sh" ]; then
+          "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/bitbucket-bootstrap.sh"
+        else
+          echo "WARN:  Bitbucket secrets bootstrap script not found at ${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/bitbucket-bootstrap.sh — continuing" >&2
+        fi
+        source "${TOMSHLEY_CICD_TOOLBOX_ROOT}/platform/toolbox-entry.sh"
+        if [ -f "${TOMSHLEY_CICD_PROJECT_DIR}/VERSION" ]; then
+          export TOMSHLEY_CICD_BUILD_VERSION="$(cat "${TOMSHLEY_CICD_PROJECT_DIR}/VERSION")"
+        else
+          export TOMSHLEY_CICD_BUILD_VERSION="dev"
+        fi
+        echo "Build Version   : ${TOMSHLEY_CICD_BUILD_VERSION}"
 
 image:
-  name: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
+  name: *flow-image-name
   username: $REGISTRY_USER
   password: $REGISTRY_TOKEN
 
@@ -58,32 +134,47 @@ pipelines:
       - step:
           name: "Release Start"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/flow/release-start.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start.sh"
     release-continue:
       - step:
           name: "Release Continue"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/flow/release-continue.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-continue.sh"
     release-cancel-new:
       - step:
           name: "Release Cancel and New"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/flow/release-cancel-new.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-cancel-new.sh"
     release-start-skip:
       - step:
           name: "Release Start Skip"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/flow/release-start-skip.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-start-skip.sh"
     release-finish:
       - step:
           name: "Release Finish"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/flow/release-finish.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/release-finish.sh"
     # Extension point: release-publish
     # All Bitbucket custom pipelines are manual by default, matching GitLab's when: manual.
     # This is a no-op extension point — consumers override the script block to add
@@ -113,11 +204,18 @@ pipelines:
       - step:
           name: "Hotfix Finish"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/flow/hotfix-finish.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/flow/hotfix-finish.sh"
     mirror-sync:
       - step:
           name: "Mirror Sync"
           script:
-            - *toolbox-setup
-            - /opt/tomshley-cicd-pipelines-toolbox/mirror/sync.sh
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-mirror-env
+            - *toolbox-bootstrap
+            - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"

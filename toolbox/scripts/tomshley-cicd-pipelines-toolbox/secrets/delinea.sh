@@ -18,7 +18,7 @@
 #
 #     .tomshley-cicd-secure-files:
 #       before_script:
-#         - /opt/tomshley-cicd-pipelines-toolbox/secrets/delinea.sh
+#         - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/delinea.sh"
 #
 # Variables:
 #   TOMSHLEY_CICD_SECRETS_BOOTSTRAP — "true" (default) or "false" to skip
