@@ -76,20 +76,22 @@ GitLab:
 
     .tomshley-cicd-secure-files:
       before_script:
-        - /opt/tomshley-cicd-pipelines-toolbox/secrets/delinea.sh
+        - "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/delinea.sh"
 
 Bitbucket:
 
     definitions:
       yaml-anchors:
-        - &toolbox-setup |
-            export TOMSHLEY_CICD_PROJECT_DIR="${BITBUCKET_CLONE_DIR}"
-            export TOMSHLEY_CICD_CURRENT_BRANCH="${BITBUCKET_BRANCH:-}"
-            export TOMSHLEY_CICD_TAG="${BITBUCKET_TAG:-}"
-            export TOMSHLEY_CICD_GIT_USER_EMAIL="${TOMSHLEY_CICD_GIT_USER_EMAIL:-pipeline@noreply.bitbucket.org}"
-            export TOMSHLEY_CICD_GIT_USER_NAME="${TOMSHLEY_CICD_GIT_USER_NAME:-Bitbucket Pipeline}"
-            /opt/tomshley-cicd-pipelines-toolbox/secrets/delinea.sh
-            source /opt/tomshley-cicd-pipelines-toolbox/platform/toolbox-entry.sh
+        - &toolbox-bootstrap |
+            export TOMSHLEY_CICD_TOOLBOX_ROOT="${TOMSHLEY_CICD_TOOLBOX_ROOT:-/opt/tomshley-cicd-pipelines-toolbox}"
+            "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/delinea.sh"
+            source "${TOMSHLEY_CICD_TOOLBOX_ROOT}/platform/toolbox-entry.sh"
+            if [ -f "${TOMSHLEY_CICD_PROJECT_DIR}/VERSION" ]; then
+              export TOMSHLEY_CICD_BUILD_VERSION="$(cat "${TOMSHLEY_CICD_PROJECT_DIR}/VERSION")"
+            else
+              export TOMSHLEY_CICD_BUILD_VERSION="dev"
+            fi
+            echo "Build Version   : ${TOMSHLEY_CICD_BUILD_VERSION}"
 
 Available toolbox scripts:
 - `secrets/gitlab-secure-files.sh` — GitLab Secure Files (default)
@@ -195,7 +197,7 @@ Override the `tomshley-cicd-mirror-sync` job in your `.gitlab-ci.yml` to define 
         TOMSHLEY_CICD_MIRROR_BRANCH_MAP: "main:main,develop:contrib"
         TOMSHLEY_CICD_MIRROR_SSH_KEY: ".secure_files/bitbucket_key"
       script:
-        - bash /opt/tomshley-cicd-pipelines-toolbox/mirror/sync.sh
+        - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
 
     mirror-github:
       extends: .tomshley-cicd-mirror-config
@@ -204,7 +206,7 @@ Override the `tomshley-cicd-mirror-sync` job in your `.gitlab-ci.yml` to define 
         TOMSHLEY_CICD_MIRROR_BRANCHES: "main"
         TOMSHLEY_CICD_MIRROR_SSH_KEY: ".secure_files/github_key"
       script:
-        - bash /opt/tomshley-cicd-pipelines-toolbox/mirror/sync.sh
+        - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
 
 ### Behavior
 
