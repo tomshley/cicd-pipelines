@@ -19,7 +19,11 @@
 #   TOMSHLEY_CICD_MIRROR_SSH_KEY     — path to SSH key file
 #   TOMSHLEY_CICD_MIRROR_FORCE_PUSH  — use --force (default: "true")
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -n "${BASH_VERSION:-}" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+else
+  SCRIPT_DIR="${TOMSHLEY_CICD_TOOLBOX_ROOT:-/opt/tomshley-cicd-pipelines-toolbox}/mirror"
+fi
 TOOLBOX_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$TOOLBOX_DIR/lib/log.sh"
 

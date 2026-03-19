@@ -14,7 +14,7 @@
 # This script is idempotent and safe to call multiple times.
 #
 # Usage:
-#   /opt/tomshley-cicd-pipelines-toolbox/docker/buildx-setup.sh
+#   "${TOMSHLEY_CICD_TOOLBOX_ROOT}/docker/buildx-setup.sh"
 #
 # ---------------------------------------------------------------------------
 
