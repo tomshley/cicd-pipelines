@@ -6,6 +6,39 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.5.5
+
+### Fixed
+- **GitLab Secure Files download broken** — The deprecated `download-secure-files` binary (hosted at `gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files`) started returning HTTP 403 on 2026-04-14, breaking all pipelines that rely on GitLab Secure Files for secrets bootstrap.
+  - `gitlab-secure-files.sh` toolbox script rewritten to use the GitLab REST API directly (`GET /projects/:id/secure_files` + per-file download). No external binary dependency.
+  - Adapter `.tomshley-cicd-secure-files` inline fallback updated with the same REST API approach.
+  - Toolbox script paginates and supports jq (preferred) or python3 (fallback) for JSON parsing.
+  - Adapter inline fallback fetches a single page (100 files); sufficient for all current projects.
+
+### Added
+- `pythondocker` runner image — Python3 + pip + Docker + toolbox. Lean runner for Python/FastAPI service CI (build, test, containerize) without JVM overhead.
+- `awsdockertofu` runner image — Python3 + pip + AWS CLI + Docker + OpenTofu + toolbox. Runner for AWS infrastructure CI with native `aws eks get-token` support, eliminating the need for in-job `pip install awscli`.
+
+---
+
+## v0.5.4
+
+### Fixed
+- Use `bash` prefix for all toolbox script executions.
+- Remove `-u` from POSIX fallback to prevent variable leak in non-bash shells.
+
+### Added
+- Decouple flow image from runner image — new `CICD_PIPELINES_FLOW_IMAGE` variable allows gitflow/mirror jobs to use a lightweight base image instead of the full runner.
+- `TOMSHLEY_CICD_TOOLBOX_ROOT` variable for explicit toolbox path resolution.
+- Adapter parity test (`test-adapter-parity.sh`) to validate GitLab and Bitbucket adapters stay in sync.
+
+### Changed
+- Bitbucket adapter updated with flow image decoupling and toolbox root support.
+- GitLab adapter updated with flow image decoupling and toolbox root support.
+- Reverted `dependencies: []` on git-push and mirror configs (caused unintended side-effects).
+
+---
+
 ## v0.5.3
 
 ### Added
