@@ -31,7 +31,7 @@ variable "BASE_CONTAINERS_UPSTREAM_TAG" {
 # ---------------------------------------------------------------------------
 
 group "default" {
-  targets = ["toolbox", "runner-sbtdockertofu", "runner-sbtrustdockertofu", "runner-sbtallure"]
+  targets = ["toolbox", "runner-sbtdockertofu", "runner-sbtrustdockertofu", "runner-sbtallure", "runner-pythondocker", "runner-awsdockertofu"]
 }
 
 # ---------------------------------------------------------------------------
@@ -103,6 +103,37 @@ target "runner-sbtallure" {
   tags = [
     "${REGISTRY}/cicd-runner-sbtallure:${TAG}",
     "${REGISTRY}/cicd-runner-sbtallure:${TAG_LATEST}"
+  ]
+  platforms = ["linux/amd64"]
+}
+
+target "runner-pythondocker" {
+  context    = "runners/pythondocker"
+  dockerfile = "Dockerfile"
+  contexts = {
+    toolbox_docker_build_ref                     = "target:toolbox"
+    os_docker_build_ref                          = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_docker_cli_buildx_docker_build_ref     = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-docker-cli-buildx-29-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+  }
+  tags = [
+    "${REGISTRY}/cicd-runner-pythondocker:${TAG}",
+    "${REGISTRY}/cicd-runner-pythondocker:${TAG_LATEST}"
+  ]
+  platforms = ["linux/amd64"]
+}
+
+target "runner-awsdockertofu" {
+  context    = "runners/awsdockertofu"
+  dockerfile = "Dockerfile"
+  contexts = {
+    toolbox_docker_build_ref                     = "target:toolbox"
+    os_docker_build_ref                          = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_docker_cli_buildx_docker_build_ref     = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-docker-cli-buildx-29-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_opentofu_docker_build_ref              = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-opentofu-1_11-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+  }
+  tags = [
+    "${REGISTRY}/cicd-runner-awsdockertofu:${TAG}",
+    "${REGISTRY}/cicd-runner-awsdockertofu:${TAG_LATEST}"
   ]
   platforms = ["linux/amd64"]
 }
