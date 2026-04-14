@@ -10,11 +10,11 @@ include:
 
 variables:
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
-  BASE_CONTAINERS_UPSTREAM_TAG: 0.4.3
+  BASE_CONTAINERS_UPSTREAM_TAG: 0.5.0
   # Intentional self-hosting bootstrap pin:
-  # keep using the last published runner image until the v0.5.3 tag pipeline
-  # publishes the new toolbox-based runner image.
-  CICD_PIPELINES_RUNNER_TAG: "0.5.2"
+  # keep using the last published runner image until the v0.5.5 tag pipeline
+  # publishes the updated runner images.
+  CICD_PIPELINES_RUNNER_TAG: "0.5.4"
   CICD_PIPELINES_FLOW_IMAGE: "${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
   TOMSHLEY_CICD_TOOLBOX_ROOT: "${CI_PROJECT_DIR}/toolbox/scripts/tomshley-cicd-pipelines-toolbox"
 

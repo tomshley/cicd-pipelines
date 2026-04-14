@@ -11,7 +11,7 @@
 # Usage in consumer .gitlab-ci.yml:
 #   include:
 #     - project: 'tomshley/.../cicd-pipelines'
-#       ref: 'v0.5.3'
+#       ref: 'v0.5.5'
 #       file: '/adapters/gitlab/ci/adapter.yml'
 
 
@@ -179,6 +179,11 @@ workflow:
 # .gitlab-ci.yml to use a different provider (Delinea, Vault, etc.).
 # Contract: populate .secure_files/ before toolbox-entry.sh runs.
 # Opt-out: set TOMSHLEY_CICD_SECRETS_BOOTSTRAP=false (per-job or project-wide).
+#
+# Implementation: Delegates to the toolbox script when available, otherwise
+# falls back to direct GitLab REST API calls (jq or python3 required for
+# JSON parsing).  The deprecated download-secure-files binary (removed in
+# GitLab 18.6+) is no longer used.
 .tomshley-cicd-secure-files:
   before_script:
     - |
@@ -186,19 +191,42 @@ workflow:
         echo "INFO:  Secrets bootstrap skipped (TOMSHLEY_CICD_SECRETS_BOOTSTRAP=${TOMSHLEY_CICD_SECRETS_BOOTSTRAP})"
       elif [ -x "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/gitlab-secure-files.sh" ]; then
         "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/gitlab-secure-files.sh"
-      elif command -v curl >/dev/null 2>&1 && command -v bash >/dev/null 2>&1; then
-        if _secure_files_installer="$(mktemp 2>/dev/null)"; then
-          if curl --fail --silent --show-error -o "${_secure_files_installer}" "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/e4bb0eaefc5a8514478dfa0113e859652a990d47/installer"; then
-            bash "${_secure_files_installer}" || echo "WARN:  GitLab Secure Files installer execution failed — continuing" >&2
+      elif command -v curl >/dev/null 2>&1 && [ -n "${CI_PROJECT_ID:-}" ] && [ -n "${CI_JOB_TOKEN:-}" ]; then
+        # Inline fallback — direct GitLab Secure Files REST API
+        _sf_dir="${CI_PROJECT_DIR:-.}/.secure_files"
+        mkdir -p "${_sf_dir}"
+        _sf_api="${CI_API_V4_URL:-https://gitlab.com/api/v4}/projects/${CI_PROJECT_ID}/secure_files"
+        _sf_resp=$(curl --fail --silent --show-error \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          "${_sf_api}?per_page=100") || {
+          echo "WARN:  Secure Files API request failed — continuing" >&2
+          _sf_resp="[]"
+        }
+        if [ "${_sf_resp}" != "[]" ] && [ -n "${_sf_resp}" ]; then
+          if command -v jq >/dev/null 2>&1; then
+            _sf_pairs=$(printf '%s' "${_sf_resp}" | jq -r '.[] | "\(.id)\t\(.name)"')
+          elif command -v python3 >/dev/null 2>&1; then
+            _sf_pairs=$(printf '%s' "${_sf_resp}" | python3 -c "import json,sys;[print(str(f['id'])+'\t'+f['name']) for f in json.load(sys.stdin)]")
           else
-            echo "WARN:  GitLab Secure Files installer download failed — continuing" >&2
+            echo "WARN:  Neither jq nor python3 available — cannot parse Secure Files API response" >&2
+            _sf_pairs=""
           fi
-          rm -f "${_secure_files_installer}"
-        else
-          echo "WARN:  mktemp unavailable — skipping GitLab Secure Files bootstrap" >&2
+          if [ -n "${_sf_pairs}" ]; then
+            echo "${_sf_pairs}" | while IFS="$(printf '\t')" read -r _sf_id _sf_name; do
+              [ -z "${_sf_id:-}" ] && continue
+              if curl --fail --silent --show-error \
+                --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+                -o "${_sf_dir}/${_sf_name}" \
+                "${_sf_api}/${_sf_id}/download"; then
+                echo "${_sf_name} downloaded to ${_sf_dir}/${_sf_name}"
+              else
+                echo "WARN:  Failed to download secure file ${_sf_name}" >&2
+              fi
+            done
+          fi
         fi
       else
-        echo "WARN:  Secrets bootstrap requested but toolbox script is unavailable and curl/bash fallback is unavailable — continuing" >&2
+        echo "WARN:  Secrets bootstrap requested but toolbox and curl are unavailable — continuing" >&2
       fi
 #endregion
 
