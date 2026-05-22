@@ -38,13 +38,13 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.5.3'
+        ref: 'v0.6.0'
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.5.3"   # pin to runner image version (match your ref)
+      CICD_PIPELINES_RUNNER_TAG: "0.6.0"   # pin to runner image version (match your ref)
 
-For self-hosting this repository before `0.5.3` runner images are published, temporarily
+For self-hosting this repository before `0.6.0` runner images are published, temporarily
 override `CICD_PIPELINES_RUNNER_TAG` in this repo's `.gitlab-ci.yml` to a published
 `develop-*` tag.
 
@@ -165,7 +165,7 @@ The adapter includes automated mirroring to a secondary remote (Bitbucket, GitHu
 |---|---|---|---|
 | `TOMSHLEY_CICD_MIRROR_URL` | No | `""` | Remote URL (SSH or HTTPS). Empty = safe no-op. |
 | `TOMSHLEY_CICD_MIRROR_BRANCHES` | No | `"main"` | Comma-separated branch list (same name on mirror) |
-| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs for branch renaming. Overrides `BRANCHES` when set. |
+| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs for branch renaming. Identity glob patterns supported (e.g. `contrib/*:contrib/*`); rename/asymmetric glob patterns are refused. Overrides `BRANCHES` when set. See `toolbox/VARIABLES.md`. |
 | `TOMSHLEY_CICD_MIRROR_TAGS` | No | `"true"` | Mirror tags: `true` or `false` |
 | `TOMSHLEY_CICD_MIRROR_SSH_KEY` | No | `""` | Path to SSH key in `.secure_files/` |
 | `TOMSHLEY_CICD_MIRROR_FORCE_PUSH` | No | `"true"` | `true` = `--force`, `false` = `--force-with-lease` |
@@ -260,7 +260,7 @@ Notes:
 
 - `VERSION` file is the release source of truth (SemVer)
 - `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
-- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.5.3'` and `CICD_PIPELINES_RUNNER_TAG: "0.5.3"`)
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.6.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.6.0"`)
 - Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.

@@ -106,6 +106,14 @@ definitions:
         export TOMSHLEY_CICD_MIRROR_TAGS="${TOMSHLEY_CICD_MIRROR_TAGS:-true}"
         export TOMSHLEY_CICD_MIRROR_SSH_KEY="${TOMSHLEY_CICD_MIRROR_SSH_KEY:-}"
         export TOMSHLEY_CICD_MIRROR_FORCE_PUSH="${TOMSHLEY_CICD_MIRROR_FORCE_PUSH:-true}"
+    - &toolbox-mirror-poll-env |
+        export TOMSHLEY_CICD_MIRROR_POLL_URL="${TOMSHLEY_CICD_MIRROR_POLL_URL:-}"
+        export TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS="${TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS:-}"
+        export TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN="${TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN:-}"
+        export TOMSHLEY_CICD_MIRROR_POLL_PUSH_USER="${TOMSHLEY_CICD_MIRROR_POLL_PUSH_USER:-x-token-auth}"
+        export TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY="${TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY:-}"
+        export TOMSHLEY_CICD_MIRROR_POLL_DRY_RUN="${TOMSHLEY_CICD_MIRROR_POLL_DRY_RUN:-false}"
+        export TOMSHLEY_CICD_MIRROR_POLL_FORCE_PUSH="${TOMSHLEY_CICD_MIRROR_POLL_FORCE_PUSH:-false}"
     - &toolbox-bootstrap |
         if [ -x "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/bitbucket-bootstrap.sh" ]; then
           "${TOMSHLEY_CICD_TOOLBOX_ROOT}/secrets/bitbucket-bootstrap.sh"
@@ -219,3 +227,13 @@ pipelines:
             - *toolbox-mirror-env
             - *toolbox-bootstrap
             - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
+    mirror-poll:
+      - step:
+          name: "Mirror Poll"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-mirror-poll-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/poll-remote.sh"
