@@ -126,19 +126,36 @@ if [ -n "${TOMSHLEY_CICD_CURRENT_BRANCH}" ]; then
         dst="$src"
       fi
       # Glob-pattern matching: bash `case` accepts shell globs in the pattern.
-      # When src contains wildcards (e.g. 'develop-*'), the actual current branch
-      # name is used as the source ref. If dst contains '*', it identity-maps
-      # to the current branch name (preserves contributor branch naming).
+      # When src contains wildcards (e.g. 'develop-*'), the actual current
+      # branch name is used as the source ref.
       matched=false
       case "${TOMSHLEY_CICD_CURRENT_BRANCH}" in
         $src) matched=true ;;
       esac
       if [ "$matched" = "true" ]; then
         actual_src="${TOMSHLEY_CICD_CURRENT_BRANCH}"
-        actual_dst="$dst"
-        case "$dst" in
-          *\**) actual_dst="${TOMSHLEY_CICD_CURRENT_BRANCH}" ;;
-        esac
+        # Wildcard semantics for the destination:
+        #   - identity wildcard (src == dst, both contain glob chars):
+        #       push current branch name unchanged → preserves contributor
+        #       branch naming (e.g. "contrib/*:contrib/*").
+        #   - wildcard rename (src has glob, dst differs): unsupported here,
+        #       since proper glob→glob substitution is not implemented. Warn
+        #       and skip rather than silently push to a wrong/invalid ref.
+        #   - dst contains a glob char without src having one: misconfiguration;
+        #       a literal branch name cannot contain '*', '?', or '['.
+        #   - both literal: original BRANCH_MAP rename behavior.
+        src_has_wild=false
+        dst_has_wild=false
+        case "$src" in *\**|*\?*|*\[*) src_has_wild=true ;; esac
+        case "$dst" in *\**|*\?*|*\[*) dst_has_wild=true ;; esac
+        if [ "$src_has_wild" = "true" ] && [ "$src" = "$dst" ]; then
+          actual_dst="${TOMSHLEY_CICD_CURRENT_BRANCH}"
+        elif [ "$src_has_wild" = "true" ] || [ "$dst_has_wild" = "true" ]; then
+          log_warn "Skipping unsupported wildcard mapping '${mapping}' — only identity wildcards are supported (e.g. 'foo-*:foo-*')"
+          continue
+        else
+          actual_dst="$dst"
+        fi
         echo "Pushing branch: ${actual_src} → ${actual_dst} (${PUSH_FLAGS})"
         git fetch origin "+refs/heads/${actual_src}:refs/remotes/origin/${actual_src}" 2>/dev/null || true
         if git push mirror "refs/remotes/origin/${actual_src}:refs/heads/${actual_dst}" ${PUSH_FLAGS}; then

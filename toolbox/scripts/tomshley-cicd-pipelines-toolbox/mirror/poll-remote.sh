@@ -44,7 +44,7 @@ fi
 # SSH key setup (only for SSH URLs)
 if [ -n "$TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY" ]; then
   if [ ! -f "$TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY" ]; then
-    log_warn "POLL_SSH_KEY '$TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY' not found"
+    log_warn "TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY is set to '$TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY' but file not found — proceeding without SSH key (will fail if poll URL requires auth)"
   elif echo "$TOMSHLEY_CICD_MIRROR_POLL_URL" | grep -qE '^(git@|ssh://)'; then
     mkdir -p ~/.ssh
     chmod 700 ~/.ssh
@@ -60,7 +60,11 @@ if [ -n "$TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY" ]; then
     if [ -n "$POLL_HOST" ] && ! echo "$POLL_HOST" | grep -q '/'; then
       ssh-keyscan -H "$POLL_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
       export GIT_SSH_COMMAND="ssh -i ~/.ssh/poll_key -o StrictHostKeyChecking=accept-new"
+    else
+      log_warn "Could not derive SSH host from TOMSHLEY_CICD_MIRROR_POLL_URL — SSH key may be ignored by git"
     fi
+  else
+    log_warn "TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY is set but POLL_URL is not SSH (git@/ssh://) — SSH key will be ignored"
   fi
 fi
 
@@ -75,35 +79,63 @@ echo "Patterns:   $TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS"
 echo "Dry run:    $TOMSHLEY_CICD_MIRROR_POLL_DRY_RUN"
 echo "Force push: $TOMSHLEY_CICD_MIRROR_POLL_FORCE_PUSH"
 
+# Unset any inherited http.extraheader (e.g. from CI job auth) before fetching
+# from poll-remote, so credentials intended for origin are not sent to the
+# external poll URL.
+git config --global --unset-all http.extraheader 2>/dev/null || true
+
 # Fetch all branches from poll remote
 git fetch poll-remote --prune
 
-# Configure origin push URL with token if provided (HTTPS)
+# Configure origin push URL with token if provided (HTTPS).
+# Use shell parameter expansion rather than sed to safely handle tokens
+# containing special characters (|, &, \, /, etc.) that would break sed.
 if [ -n "$TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN" ]; then
   ORIGIN_URL=$(git remote get-url origin)
   case "$ORIGIN_URL" in
     https://*)
-      AUTHED_URL=$(echo "$ORIGIN_URL" | sed -E "s|https://([^@]+@)?|https://${TOMSHLEY_CICD_MIRROR_POLL_PUSH_USER}:${TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN}@|")
+      # Strip any existing user:pass@ prefix, then prepend our credentials.
+      URL_NOSCHEME="${ORIGIN_URL#https://}"
+      URL_NOAUTH="${URL_NOSCHEME#*@}"
+      # If there was no @, ${URL_NOSCHEME#*@} returns the original; guard that.
+      case "$URL_NOSCHEME" in
+        *@*) ;; # had auth, stripped
+        *) URL_NOAUTH="$URL_NOSCHEME" ;;
+      esac
+      AUTHED_URL="https://${TOMSHLEY_CICD_MIRROR_POLL_PUSH_USER}:${TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN}@${URL_NOAUTH}"
       git remote set-url --push origin "$AUTHED_URL"
       ;;
   esac
 fi
 
-# Match poll-remote branches against patterns
+# Match poll-remote branches against patterns.
+# Use full refname (not :short) and explicitly exclude the symbolic HEAD ref,
+# so a literal branch named "HEAD" on the remote is not silently dropped.
 MATCHED_BRANCHES=""
 OLD_IFS="$IFS"
 IFS=','
 for pattern in $TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS; do
   pattern=$(echo "$pattern" | tr -d '[:space:]')
-  while IFS= read -r ref; do
-    branch="${ref#poll-remote/}"
-    [ "$branch" = "HEAD" ] && continue
+  while IFS= read -r refname; do
+    case "$refname" in
+      refs/remotes/poll-remote/HEAD) continue ;;
+    esac
+    branch="${refname#refs/remotes/poll-remote/}"
     case "$branch" in
       $pattern) MATCHED_BRANCHES="$MATCHED_BRANCHES $branch" ;;
     esac
-  done < <(git for-each-ref --format='%(refname:short)' refs/remotes/poll-remote/)
+  done < <(git for-each-ref --format='%(refname)' refs/remotes/poll-remote/)
 done
 IFS="$OLD_IFS"
+
+# Disable pathname expansion: branch names may contain glob-like characters
+# and we iterate $MATCHED_BRANCHES unquoted (word-splitting is intentional).
+set -f
+
+# Deduplicate (a branch may match multiple patterns).
+if [ -n "$MATCHED_BRANCHES" ]; then
+  MATCHED_BRANCHES=$(printf '%s\n' $MATCHED_BRANCHES | sort -u | tr '\n' ' ')
+fi
 
 PUSHED=0
 FAILED=0
@@ -146,4 +178,5 @@ if [ "$FAILED" -gt 0 ]; then
   log_warn "$FAILED branch(es) failed to push (see errors above)"
 fi
 
+set +f
 exit 0
