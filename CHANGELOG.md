@@ -6,20 +6,33 @@ This project follows Semantic Versioning.
 
 ---
 
-## UNRELEASED
+## v0.6.0 — 2026-05-22
 
 ### Added
 - **Bidirectional Mirror (Vendor Contributions)** — Extends the existing mirror-sync pattern to support vendor/OSS contribution workflows where external contributors push branches to a secondary platform (e.g., Bitbucket) that are then mirrored back to the source-of-truth (e.g., GitLab).
-  - **Wildcard glob-pattern support** in `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` — Enables branch patterns like `develop-*:develop-*` to automatically mirror all vendor contribution branches without manual configuration per branch.
+  - **Wildcard glob-pattern support** in `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` — Enables branch patterns like `contrib/*:contrib/*` to automatically mirror all contributor branches without manual configuration per branch. Only identity glob patterns are supported; rename patterns (e.g., `develop-*:release-*`) are refused with a warning.
   - **New `mirror/poll-remote.sh` script** — Cron/scheduled-driven reverse mirroring. Fetches a remote and pushes matching branches to local origin. Use case: when the external platform has no CI or as a backstop for push-driven mirroring.
   - **GitLab adapter `tomshley-cicd-mirror-poll` job** — Wired to `$CI_PIPELINE_SOURCE == "schedule"` for scheduled reverse sync.
   - **Bitbucket adapter `mirror-poll` custom pipeline** — Manual or scheduled execution for reverse sync.
   - **Loop prevention** — Forward (`MIRROR_BRANCHES`) and reverse (`MIRROR_POLL_BRANCH_PATTERNS`) branch sets are disjoint by design, preventing infinite mirror loops.
   - **Documentation** — New `VARIABLES.md` section with mirror poll variables and 3 deployment recipes:
     - Recipe A: Read-only mirror (existing pattern)
-    - Recipe B: Vendor contribution (push-driven, bidirectional)
+    - Recipe B: Contributor workflow (push-driven, bidirectional)
     - Recipe C: Cron-driven reverse sync (no external CI required)
-  - **Test** — `test-mirror-wildcard.sh` validates glob pattern matching in `BRANCH_MAP`.
+  - **Tests**:
+    - `test-mirror-wildcard.sh` validates identity glob patterns push to correct refs with correct SHAs
+    - `test-mirror-wildcard-rename.sh` validates asymmetric/rename glob mappings are refused with warnings
+    - `test-adapter-conformance.sh` now derives expected toolbox-script set from disk rather than hard-coded count
+
+### Fixed
+- **Mirror sync wildcard rename guard** — `sync.sh` now refuses unsupported wildcard rename mappings (e.g., `develop-*:release-*`) with a warning instead of silently pushing to the wrong ref. Only identity wildcards are supported.
+- **Mirror poll token URL rewrite** — Replaced `sed`-based token injection with shell parameter expansion to safely handle tokens containing special characters (`|`, `&`, `\`, `/`).
+- **Wildcard detection** — Broadened from `*` to include `?` and `[` for robust validation of glob patterns.
+- **SSH key setup warnings** — `poll-remote.sh` now provides comprehensive warnings matching `sync.sh` for missing or misconfigured SSH keys.
+- **Branch deduplication** — `poll-remote.sh` deduplicates matched branches before push loop to prevent inflated push counts.
+- **Pathname expansion safety** — Added `set -f` to disable pathname expansion during branch iteration and deduplication in `poll-remote.sh`.
+- **HEAD branch detection** — Uses full refname to allow literal branches named "HEAD" while excluding the symbolic `refs/remotes/poll-remote/HEAD`.
+- **Credential leakage prevention** — Moved `http.extraheader` unset before fetch operations in `poll-remote.sh` to prevent stale credentials from being sent.
 
 ---
 
