@@ -38,12 +38,14 @@ BB_SCRIPTS=$(grep -oE '\$\{TOMSHLEY_CICD_TOOLBOX_ROOT\}/(flow|mirror)/[a-z-]+\.s
 
 assert_equal "Toolbox script sets match" "$GL_SCRIPTS" "$BB_SCRIPTS"
 
-# Count scripts as sanity check (should be 7)
-GL_COUNT=$(echo "$GL_SCRIPTS" | wc -l | tr -d ' ')
-assert_equal "GitLab adapter invokes 7 toolbox scripts" "7" "$GL_COUNT"
+# Source-of-truth: every flow/*.sh and mirror/*.sh in the toolbox MUST be
+# invoked by every adapter. This avoids drift between adapters and keeps
+# the assertion stable when scripts are added or removed.
+TOOLBOX_SCRIPTS_DIR="$PROJECT_ROOT/toolbox/scripts/tomshley-cicd-pipelines-toolbox"
+EXPECTED_SCRIPTS=$(cd "$TOOLBOX_SCRIPTS_DIR" && find flow mirror -maxdepth 1 -type f -name '*.sh' | sort -u)
 
-BB_COUNT=$(echo "$BB_SCRIPTS" | wc -l | tr -d ' ')
-assert_equal "Bitbucket adapter invokes 7 toolbox scripts" "7" "$BB_COUNT"
+assert_equal "GitLab adapter invokes every toolbox flow/mirror script" "$EXPECTED_SCRIPTS" "$GL_SCRIPTS"
+assert_equal "Bitbucket adapter invokes every toolbox flow/mirror script" "$EXPECTED_SCRIPTS" "$BB_SCRIPTS"
 
 # Check both adapters source toolbox-entry.sh
 GL_ENTRY=$(grep -c 'toolbox-entry.sh' "$GITLAB_ADAPTER" || echo "0")

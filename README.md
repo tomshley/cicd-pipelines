@@ -165,7 +165,7 @@ The adapter includes automated mirroring to a secondary remote (Bitbucket, GitHu
 |---|---|---|---|
 | `TOMSHLEY_CICD_MIRROR_URL` | No | `""` | Remote URL (SSH or HTTPS). Empty = safe no-op. |
 | `TOMSHLEY_CICD_MIRROR_BRANCHES` | No | `"main"` | Comma-separated branch list (same name on mirror) |
-| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs for branch renaming. Overrides `BRANCHES` when set. |
+| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs for branch renaming. Identity glob patterns supported (e.g. `contrib/*:contrib/*`); rename/asymmetric glob patterns are refused. Overrides `BRANCHES` when set. See `toolbox/VARIABLES.md`. |
 | `TOMSHLEY_CICD_MIRROR_TAGS` | No | `"true"` | Mirror tags: `true` or `false` |
 | `TOMSHLEY_CICD_MIRROR_SSH_KEY` | No | `""` | Path to SSH key in `.secure_files/` |
 | `TOMSHLEY_CICD_MIRROR_FORCE_PUSH` | No | `"true"` | `true` = `--force`, `false` = `--force-with-lease` |

@@ -50,14 +50,23 @@
 
 ## Planned Milestones
 
-### v0.6.0 — Git LFS Support
+### v0.6.0 — Bidirectional Mirror (Vendor Contributions)
+
+- [x] Wildcard glob-pattern support in `MIRROR_BRANCH_MAP` (e.g., `develop-*:develop-*`)
+- [x] New `mirror/poll-remote.sh` for cron-driven reverse mirroring
+- [x] GitLab adapter `tomshley-cicd-mirror-poll` job (scheduled pipelines)
+- [x] Bitbucket adapter `mirror-poll` custom pipeline
+- [x] Documentation: mirror poll variables + 3 deployment recipes (read-only, bidirectional push-driven, cron-driven)
+- [x] Test: `test-mirror-wildcard.sh` for glob pattern matching
+
+### v0.7.0 — Git LFS Support
 
 - [ ] `toolbox/lib/lfs.sh` cross-platform LFS bootstrap script
 - [ ] `adapters/gitlab/ci/.lfs-runtime.yml` GitLab hidden job (`.tomshley-cicd-lfs-runtime`)
 - [ ] Consumers extend `.tomshley-cicd-lfs-runtime` for build/publish jobs needing LFS content
 - [ ] Bitbucket equivalent as platform matures
 
-### v0.7.0 — Bitbucket Pipelines
+### v0.8.0 — Bitbucket Pipelines
 
 - [ ] Bitbucket CI templates implementing common specs
 - [ ] Platform status: bitbucket → active

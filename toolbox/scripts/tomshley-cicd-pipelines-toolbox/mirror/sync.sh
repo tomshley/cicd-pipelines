@@ -125,14 +125,26 @@ if [ -n "${TOMSHLEY_CICD_CURRENT_BRANCH}" ]; then
       if [ -z "$dst" ]; then
         dst="$src"
       fi
-      if [ "$src" = "${TOMSHLEY_CICD_CURRENT_BRANCH}" ]; then
-        echo "Pushing branch: ${src} → ${dst} (${PUSH_FLAGS})"
-        # Ensure remote tracking ref exists before pushing
-        git fetch origin "+refs/heads/${src}:refs/remotes/origin/${src}" 2>/dev/null || true
-        if git push mirror "refs/remotes/origin/${src}:refs/heads/${dst}" ${PUSH_FLAGS}; then
+      # Glob-pattern matching: bash `case` accepts shell globs in the pattern.
+      # When src contains wildcards (e.g. 'develop-*'), the actual current branch
+      # name is used as the source ref. If dst contains '*', it identity-maps
+      # to the current branch name (preserves contributor branch naming).
+      matched=false
+      case "${TOMSHLEY_CICD_CURRENT_BRANCH}" in
+        $src) matched=true ;;
+      esac
+      if [ "$matched" = "true" ]; then
+        actual_src="${TOMSHLEY_CICD_CURRENT_BRANCH}"
+        actual_dst="$dst"
+        case "$dst" in
+          *\**) actual_dst="${TOMSHLEY_CICD_CURRENT_BRANCH}" ;;
+        esac
+        echo "Pushing branch: ${actual_src} → ${actual_dst} (${PUSH_FLAGS})"
+        git fetch origin "+refs/heads/${actual_src}:refs/remotes/origin/${actual_src}" 2>/dev/null || true
+        if git push mirror "refs/remotes/origin/${actual_src}:refs/heads/${actual_dst}" ${PUSH_FLAGS}; then
           PUSHED=$((PUSHED + 1))
         else
-          log_error "Failed to push branch ${src} → ${dst} to mirror"
+          log_error "Failed to push branch ${actual_src} → ${actual_dst} to mirror"
           FAILED=$((FAILED + 1))
         fi
       fi

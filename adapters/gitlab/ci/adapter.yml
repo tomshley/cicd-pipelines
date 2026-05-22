@@ -768,3 +768,65 @@ tomshley-cicd-mirror-sync:
     - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
 
 #endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Mirror Poll (Reverse / Scheduled)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ---------------------------------------------------------------------------
+# Mirror poll: fetches a remote (the "external" mirror) for matching branch
+# patterns and pushes them to local origin. Use case: external contribution
+# flow where contributors push to a secondary platform but the source-of-truth
+# is the primary platform.
+#
+# Trigger: GitLab scheduled pipelines only ($CI_PIPELINE_SOURCE == "schedule")
+# Configure schedule under Settings > CI/CD > Schedules.
+#
+# Required CI/CD variables:
+#   TOMSHLEY_CICD_MIRROR_POLL_URL — Remote to fetch FROM
+#   TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS — e.g., "develop-*"
+#
+# Loop prevention: poll-remote.sh only pushes branches matching POLL patterns.
+# Configure forward mirror-sync (main, develop) and reverse poll patterns
+# (develop-*) to be DISJOINT to prevent infinite loops.
+# ---------------------------------------------------------------------------
+
+#region Mirror Poll Configuration
+.tomshley-cicd-mirror-poll-config:
+  image: ${CICD_PIPELINES_FLOW_IMAGE}
+  tags:
+    - saas-linux-small-amd64
+  variables:
+    GIT_DEPTH: 0
+    GIT_STRATEGY: clone
+    TOMSHLEY_CICD_PROJECT_DIR: "${CI_PROJECT_DIR}"
+    TOMSHLEY_CICD_GIT_USER_EMAIL: "${GITLAB_USER_EMAIL}"
+    TOMSHLEY_CICD_GIT_USER_NAME: "${GITLAB_USER_NAME}"
+    TOMSHLEY_CICD_MIRROR_POLL_URL: ""
+    TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS: ""
+    TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN: ""
+    TOMSHLEY_CICD_MIRROR_POLL_PUSH_USER: "oauth2"
+    TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY: ""
+    TOMSHLEY_CICD_MIRROR_POLL_DRY_RUN: "false"
+    TOMSHLEY_CICD_MIRROR_POLL_FORCE_PUSH: "false"
+  before_script:
+    - !reference [.tomshley-cicd-ensure-tools, before_script]
+    - !reference [.tomshley-cicd-secure-files, before_script]
+    - source "${TOMSHLEY_CICD_TOOLBOX_ROOT}/platform/toolbox-entry.sh"
+#endregion
+
+
+#region Mirror Poll (scheduled pipelines)
+tomshley-cicd-mirror-poll:
+  stage: .post
+  extends:
+    - .tomshley-cicd-mirror-poll-config
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $TOMSHLEY_CICD_MIRROR_POLL_URL'
+      when: on_success
+    - when: never
+  allow_failure: true
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/poll-remote.sh"
+#endregion
