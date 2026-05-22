@@ -6,6 +6,20 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.6.1 — 2026-05-22
+
+### Fixed
+- **Mirror sync wildcard rename guard restored** — During the v0.6.0 release branch rebase, the wildcard rename/asymmetric guard in `mirror/sync.sh` was inadvertently dropped, causing mappings like `develop-*:release-*` to silently push to the source branch name instead of being refused. The guard is re-applied: only identity wildcards (`foo-*:foo-*`) are accepted; rename/asymmetric patterns are skipped with a warning.
+- **Mirror poll hardening restored** — Re-applied lost fixes in `mirror/poll-remote.sh`:
+  - Token URL rewrite uses shell parameter expansion instead of `sed` so tokens containing `|`, `&`, `\`, `/` no longer corrupt the URL.
+  - `http.extraheader` is unset before fetching from `poll-remote` to avoid leaking origin credentials.
+  - HEAD detection uses the full refname (`refs/remotes/poll-remote/HEAD`) so a literal branch named `HEAD` is not silently dropped.
+  - Matched branches are deduplicated before push to prevent inflated counts when a branch matches multiple patterns.
+  - `set -f` disables pathname expansion across the iteration and dedup steps; explicit `set +f` on exit.
+  - SSH key setup warns when the key is set but the URL is not SSH, or when the host cannot be derived from the URL.
+
+---
+
 ## v0.6.0 — 2026-05-22
 
 ### Added
