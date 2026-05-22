@@ -31,10 +31,94 @@ Variables are organized by who sets them and where they are used.
 |----------|-----------|---------|-------------|
 | `TOMSHLEY_CICD_MIRROR_URL` | No | `""` (empty = no-op) | Remote URL (SSH or HTTPS). Leave empty to disable mirroring. |
 | `TOMSHLEY_CICD_MIRROR_BRANCHES` | No | `"main"` | Comma-separated branch list |
-| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs (overrides BRANCHES when set) |
+| `TOMSHLEY_CICD_MIRROR_BRANCH_MAP` | No | `""` | Comma-separated `src:dst` pairs. Supports glob patterns (e.g., `"develop-*:develop-*"`). Overrides BRANCHES when set. |
 | `TOMSHLEY_CICD_MIRROR_TAGS` | No | `"true"` | Mirror tags: `true` or `false` |
 | `TOMSHLEY_CICD_MIRROR_SSH_KEY` | No | `""` | Path to SSH key file (e.g. in `.secure_files/`) |
 | `TOMSHLEY_CICD_MIRROR_FORCE_PUSH` | No | `"true"` | `true` = `--force`, `false` = `--force-with-lease` |
+
+### Mirror Poll Variables (used by `mirror/poll-remote.sh`)
+
+For cron/scheduled-driven reverse mirroring. `poll-remote.sh` fetches a remote
+and pushes matching branches to local origin. Loop-safe when forward
+(`MIRROR_BRANCHES`) and reverse (`MIRROR_POLL_BRANCH_PATTERNS`) sets are
+disjoint.
+
+| Variable | Required? | Default | Description |
+|----------|-----------|---------|-------------|
+| `TOMSHLEY_CICD_MIRROR_POLL_URL` | Yes (for poll) | `""` | Remote URL to fetch FROM (the "external" mirror) |
+| `TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS` | Yes (for poll) | `""` | Comma-separated glob patterns. Example: `"develop-*,oss/*"` |
+| `TOMSHLEY_CICD_MIRROR_POLL_PUSH_TOKEN` | No | `""` | Token for pushing to local origin (GitLab PAT, Bitbucket App Password) |
+| `TOMSHLEY_CICD_MIRROR_POLL_PUSH_USER` | No | platform-specific | Username for HTTPS push auth (GitLab: `oauth2`, Bitbucket: `x-token-auth`) |
+| `TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY` | No | `""` | SSH key path for fetching from poll URL |
+| `TOMSHLEY_CICD_MIRROR_POLL_DRY_RUN` | No | `false` | Skip actual push for testing |
+| `TOMSHLEY_CICD_MIRROR_POLL_FORCE_PUSH` | No | `false` | `true` = `--force`, `false` = `--force-with-lease` |
+
+---
+
+## Deployment Recipes
+
+### Recipe A: Read-Only Mirror (current pattern)
+
+GitLab is source-of-truth; Bitbucket is read-only mirror. Tags + main + develop sync forward.
+
+**GitLab `.gitlab-ci.yml`:**
+```yaml
+tomshley-cicd-mirror-sync:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  variables:
+    TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
+    TOMSHLEY_CICD_MIRROR_BRANCHES: "main,develop"
+    TOMSHLEY_CICD_MIRROR_TAGS: "true"
+```
+
+### Recipe B: External Contribution (push-driven, bidirectional)
+
+External contributors push `develop-*` branches on the secondary platform (e.g., Bitbucket). Maintainers review and merge them to `develop` on the primary platform (e.g., GitLab) via merge request.
+
+**GitLab `.gitlab-ci.yml`** (forward mirror — main/develop only):
+```yaml
+tomshley-cicd-mirror-sync:
+  rules:
+    - if: '$CI_COMMIT_BRANCH =~ /^(main|develop)$/'
+  variables:
+    TOMSHLEY_CICD_MIRROR_URL: "git@bitbucket.org:org/repo.git"
+    TOMSHLEY_CICD_MIRROR_BRANCH_MAP: "main:main,develop:develop"
+```
+
+**Bitbucket `bitbucket-pipelines.yml`** (reverse mirror — develop-* only):
+```yaml
+pipelines:
+  branches:
+    'develop-*':
+      - step:
+          name: "Mirror to GitLab"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - export TOMSHLEY_CICD_MIRROR_URL="git@gitlab.com:org/repo.git"
+            - export TOMSHLEY_CICD_MIRROR_BRANCH_MAP="develop-*:develop-*"
+            - export TOMSHLEY_CICD_MIRROR_FORCE_PUSH="false"
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/sync.sh"
+```
+
+**Loop safety:** GitLab pushes only `main`/`develop`; Bitbucket pushes only `develop-*`. Disjoint.
+
+### Recipe C: Cron-Driven Reverse Sync (no secondary platform CI required)
+
+Useful when the secondary platform's CI is unavailable or you want a scheduled backstop for pull-based mirroring.
+
+**GitLab Schedule** (Settings > CI/CD > Schedules, every 15 min):
+```yaml
+# In .gitlab-ci.yml
+tomshley-cicd-mirror-poll:
+  variables:
+    TOMSHLEY_CICD_MIRROR_POLL_URL: "git@bitbucket.org:org/repo.git"
+    TOMSHLEY_CICD_MIRROR_POLL_BRANCH_PATTERNS: "develop-*"
+    TOMSHLEY_CICD_MIRROR_POLL_SSH_KEY: ".secure_files/bitbucket_deploy_key"
+```
 
 ---
 
