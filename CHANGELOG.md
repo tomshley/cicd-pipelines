@@ -6,6 +6,16 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.6.2 — 2026-05-28
+
+### Added
+- **`docker/switch-to-push-auth.sh` toolbox helper** — Idempotent, sourced script that unsets `DOCKER_AUTH_CONFIG` between `docker buildx build` and `docker push`. Enables pipelines to keep `DOCKER_AUTH_CONFIG` set during the build step (so base images can be pulled from registries reachable only via a group-level / cross-org deploy token) and switch to file-based auth from `~/.docker/config.json` for push (using the platform's job token, which has write access to the current project). Must be sourced (`. ` or `source`) — not executed — so the `unset` propagates to the calling shell. Documented in `toolbox/VARIABLES.md` under "Docker Helpers".
+
+### Changed
+- **GitLab adapter `.tomshley-docker-runtime`** — Added a guidance comment in `before_script` warning against placing `unset DOCKER_AUTH_CONFIG` there (which would prevent `docker buildx build` from pulling cross-org base images) and pointing consumers to the new helper for use between build and push. No behaviour change for existing pipelines. The Bitbucket adapter is unaffected because it does not export `DOCKER_AUTH_CONFIG` (image-level credentials are used per `image: { username, password }` instead).
+
+---
+
 ## v0.6.1 — 2026-05-22
 
 ### Fixed

@@ -159,3 +159,30 @@ and are NOT handled by the toolbox scripts.
 | `TOMSHLEY_CICD_FLOW_TYPE` | Flow type derived from branch pattern matching (e.g. `feature`, `release`, `hotfix`, `develop`, `main`, `tag`) |
 | `TOMSHLEY_CICD_BUILD_REVISION` | SHA-based revision suffix for build versioning |
 | `TOMSHLEY_CICD_BUILD_VERSION` | Full build version (read from `VERSION` file by adapter bootstrap) |
+
+## Docker Helpers
+
+### switch-to-push-auth.sh
+
+**Path:** `${TOMSHLEY_CICD_TOOLBOX_ROOT}/docker/switch-to-push-auth.sh`
+
+**Purpose:** Switch Docker authentication context from `DOCKER_AUTH_CONFIG` (read) to `~/.docker/config.json` (write) between build and push steps.
+
+**When to use:** Source this script between `docker buildx build` and `docker push` when your pipeline:
+- Pulls base images from a different registry/organization than the target registry
+- Uses a group-level deploy token that grants cross-org read but not write
+- Needs to push to the current project registry using the platform job token
+
+**Usage pattern:**
+```bash
+docker buildx build -t $CI_REGISTRY_IMAGE:$TAG .
+. "${TOMSHLEY_CICD_TOOLBOX_ROOT}/docker/switch-to-push-auth.sh"
+docker push $CI_REGISTRY_IMAGE:$TAG
+```
+
+**Behavior:**
+- **Idempotent** — safe to call multiple times; no-op if `DOCKER_AUTH_CONFIG` is already unset.
+- **Diagnostics** — writes `INFO:` to stdout describing the action taken; writes `WARN:` to stderr if `~/.docker/config.json` is missing or empty (indicates a missing `docker login` step in `before_script`).
+- **Must be sourced** (`. ` or `source`) — executing as a subshell will not propagate `unset` to the caller.
+
+**Why not in `before_script`:** Unsetting `DOCKER_AUTH_CONFIG` in `before_script` would break `docker buildx build` when pulling cross-org base images. The helper allows fine-grained control between build and push.
