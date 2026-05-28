@@ -426,6 +426,16 @@ workflow:
 
   before_script:
     - !reference [.before-container-tags, before_script]
+    # Note: DO NOT unset DOCKER_AUTH_CONFIG here. If your pipeline pulls
+    # cross-org base images via a group-level deploy token, DOCKER_AUTH_CONFIG
+    # must remain set during `docker buildx build`. Use the helper script
+    # between build and push instead:
+    #
+    #   docker buildx build ...
+    #   . "${TOMSHLEY_CICD_TOOLBOX_ROOT}/docker/switch-to-push-auth.sh"
+    #   docker push ...
+    #
+    # See toolbox/VARIABLES.md for details.
     - |
       if [ -n "$CI_REGISTRY_USER" ] && [ -n "$CI_REGISTRY_PASSWORD" ]; then
         docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
