@@ -9,6 +9,7 @@
 #   TOMSHLEY_CICD_PROJECT_DIR — project root (set by platform script)
 # Optional environment variables:
 #   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — flow message prefix for git commits (default: "", no prefix)
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN — regex to derive the prefix from recent commit subjects when unset
 set -euo pipefail
 if [ -n "${BASH_VERSION:-}" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,6 +29,7 @@ cd "$TOMSHLEY_CICD_PROJECT_DIR"
 
 git_fetch_tags
 git_checkout_pull_rebase develop
+flow_resolve_message_prefix
 
 RELEASE_COUNT=$(git_count_remote_release_branches)
 if [ "$RELEASE_COUNT" -gt 1 ]; then

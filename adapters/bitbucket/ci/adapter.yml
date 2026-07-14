@@ -22,6 +22,10 @@
 #     Default: "Bitbucket Pipeline"
 #   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for all flow commit/merge/tag messages
 #     Default: "" (no prefix)
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN — Regex to auto-derive the prefix
+#     from recent commit subjects when FLOW_MESSAGE_PREFIX is unset, e.g. "PROJ-[0-9]+"
+#   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — Marker appended to develop merge messages
+#     Default: "[skip ci]" — set to an empty string to disable
 #   TOMSHLEY_CICD_FLOW_PUSH_TOKEN — App Password for git push (optional)
 #     Not needed on Bitbucket (native push triggers pipelines).
 #     If set, also set TOMSHLEY_CICD_FLOW_PUSH_USER to your Bitbucket username.

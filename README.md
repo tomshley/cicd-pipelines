@@ -38,11 +38,11 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.7.0'
+        ref: 'v0.8.0'
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.7.0"   # pin to runner image version (match your ref)
+      CICD_PIPELINES_RUNNER_TAG: "0.8.0"   # pin to runner image version (match your ref)
 
 For self-hosting this repository before `0.6.1` runner images are published, temporarily
 override `CICD_PIPELINES_RUNNER_TAG` in this repo's `.gitlab-ci.yml` to a published
@@ -141,6 +141,8 @@ Set in **Settings > CI/CD > Variables** (all optional):
 | Variable | Description |
 |---|---|
 | `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | Prefix for all flow-generated commit/merge/tag messages (default: `""`, no prefix) |
+| `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN` | Regex to auto-derive the prefix from recent commit subjects when `FLOW_MESSAGE_PREFIX` is unset (e.g. an issue-tracker key pattern like `PROJ-[0-9]+`) |
+| `TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER` | Marker appended to develop merge messages (default: `[skip ci]`; set empty to disable) |
 | `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` | Token for flow push auth — enables pipeline triggering on GitLab (PAT with `write_repository`). Not needed on Bitbucket. |
 | `TOMSHLEY_CICD_FLOW_PUSH_USER` | Username for flow push auth (GitLab adapter defaults to `oauth2`). Set on Bitbucket if using App Password. |
 
@@ -260,7 +262,7 @@ Notes:
 
 - `VERSION` file is the release source of truth (SemVer)
 - `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
-- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.7.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.7.0"`)
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.8.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.8.0"`)
 - Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.

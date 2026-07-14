@@ -10,7 +10,8 @@
 #   TOMSHLEY_CICD_CURRENT_BRANCH   — the release/* branch name (set by platform script)
 # Optional env vars:
 #   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX  — commit message prefix (default: "", no prefix)
-#   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — skip-ci marker for develop merges
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN — regex to derive the prefix from recent commit subjects when unset
+#   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — skip-ci marker for develop merges (default: "[skip ci]"; set empty to disable)
 set -euo pipefail
 if [ -n "${BASH_VERSION:-}" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,7 +27,7 @@ source "$TOOLBOX_DIR/lib/flow.sh"
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required}"
 : "${TOMSHLEY_CICD_CURRENT_BRANCH:?required}"
 : "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=}"
-: "${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER:=[skip ci]}"
+: "${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER=[skip ci]}"
 
 cd "$TOMSHLEY_CICD_PROJECT_DIR"
 
@@ -39,6 +40,7 @@ fi
 
 git_fetch_tags
 git_checkout_pull_ff "${RELEASE_BRANCH}"
+flow_resolve_message_prefix
 
 RELEASE_VERSION=$(version_read "$VERSION_FILE")
 version_validate "$RELEASE_VERSION"
@@ -59,7 +61,7 @@ git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | main"
 git tag -a "${RELEASE_TAG_VERSION}" -m "${FINISH_MESSAGE}"
 git checkout develop
 git pull origin develop --ff-only --prune
-git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}"
+git merge --no-ff --no-edit "${RELEASE_BRANCH}" -m "${FINISH_MESSAGE} | develop${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER:+ | ${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER}}"
 git branch -D "${RELEASE_BRANCH}"
 # Recheck remote tag immediately before push to prevent TOCTOU race
 # (local tag already exists from git tag -a above — check the remote)
