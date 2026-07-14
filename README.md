@@ -140,7 +140,7 @@ Set in **Settings > CI/CD > Variables** (all optional):
 
 | Variable | Description |
 |---|---|
-| `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | Prefix for merge/tag commit messages (default: `"Tomshley CI Pipeline"`) |
+| `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` | Prefix for all flow-generated commit/merge/tag messages (default: `""`, no prefix) |
 | `TOMSHLEY_CICD_FLOW_PUSH_TOKEN` | Token for flow push auth — enables pipeline triggering on GitLab (PAT with `write_repository`). Not needed on Bitbucket. |
 | `TOMSHLEY_CICD_FLOW_PUSH_USER` | Username for flow push auth (GitLab adapter defaults to `oauth2`). Set on Bitbucket if using App Password. |
 

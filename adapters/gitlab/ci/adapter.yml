@@ -492,9 +492,10 @@ dependency_scanning:
 #   CI_JOB_TOKEN push auth is provided natively via CI_REPOSITORY_URL.
 #
 # Optional CI/CD variables:
-#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for merge/tag messages
-#     Default: "Tomshley CI Pipeline"
-#     Override to customise commit messages, e.g. "Acme Corp"
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for all flow commit/merge/tag messages
+#     Default: "" (no prefix)
+#     Override to customise commit messages, e.g. "Acme Corp" or "JIRA-123:"
+#     (useful to satisfy commit-message verification rules, e.g. GitLab's Jira issue verification)
 #
 # Note: flow-feature-start (auto-create MR) is NOT implemented here.
 # MR/PR creation APIs are fundamentally platform-specific (GitLab MR vs
