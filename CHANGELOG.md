@@ -6,6 +6,16 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.7.0 — 2026-07-14
+
+### Fixed
+- **`TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` now applied consistently across all flow scripts** — Previously only `release-finish`/`hotfix-finish`'s merge and tag messages honored the prefix; `release-start`, `release-start-skip`, `release-cancel-new`, and `release-continue` had hardcoded `chore: ...` commit/merge messages that ignored it entirely, so setting the variable could not make every flow-generated commit message consistent (for example, to satisfy a downstream commit-message verification rule).
+
+### Changed
+- **`TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` default changed from `"Tomshley CI Pipeline"` to `""` (no prefix)** — Uses `${VAR:+$VAR }` conditional expansion so no leading space or stray artifact appears when unset. Consumers who never set the variable now get prefix-free commit messages everywhere (previously the literal string `"Tomshley CI Pipeline"` was force-prepended to every `release-finish`/`hotfix-finish` merge and tag message by default). Documented in `toolbox/VARIABLES.md`, `README.md`, and both adapter `.yml` header comments.
+
+---
+
 ## v0.6.2 — 2026-05-28
 
 ### Added
