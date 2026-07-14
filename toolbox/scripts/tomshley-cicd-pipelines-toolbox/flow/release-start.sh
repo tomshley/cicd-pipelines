@@ -9,7 +9,7 @@
 # Required env vars:
 #   TOMSHLEY_CICD_PROJECT_DIR — project root (set by platform script)
 # Optional environment variables:
-#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — flow message prefix for git commits (default: "Tomshley CI Pipeline")
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — flow message prefix for git commits (default: "", no prefix)
 set -euo pipefail
 if [ -n "${BASH_VERSION:-}" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +23,7 @@ source "$TOOLBOX_DIR/lib/git.sh"
 source "$TOOLBOX_DIR/lib/flow.sh"
 
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required}"
-: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=Tomshley CI Pipeline}"
+: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=}"
 
 cd "$TOMSHLEY_CICD_PROJECT_DIR"
 
@@ -61,7 +61,7 @@ git checkout -B "release/${NEXT_VERSION}"
 
 echo "${NEXT_VERSION}" > "$VERSION_FILE"
 git add "$VERSION_FILE"
-git commit -m "chore: bump version to ${NEXT_VERSION}"
+git commit -m "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:+$TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX }chore: bump version to ${NEXT_VERSION}"
 # Recheck both tag and branch immediately before push to prevent TOCTOU race
 if git_tag_exists "$NEXT_TAG_VERSION"; then
   log_fatal "Tag ${NEXT_TAG_VERSION} was created during release start — aborting"

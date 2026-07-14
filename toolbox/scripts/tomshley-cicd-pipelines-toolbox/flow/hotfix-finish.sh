@@ -10,7 +10,7 @@
 #   TOMSHLEY_CICD_PROJECT_DIR      — project root (set by platform script)
 #   TOMSHLEY_CICD_CURRENT_BRANCH   — the hotfix/* branch name (set by platform script)
 # Optional env vars:
-#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX  — commit message prefix
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX  — commit message prefix (default: "", no prefix)
 #   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — skip-ci marker for develop merges
 set -euo pipefail
 if [ -n "${BASH_VERSION:-}" ]; then
@@ -26,7 +26,7 @@ source "$TOOLBOX_DIR/lib/flow.sh"
 
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required}"
 : "${TOMSHLEY_CICD_CURRENT_BRANCH:?required}"
-: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=Tomshley CI Pipeline}"
+: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=}"
 : "${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER:=[skip ci]}"
 
 cd "$TOMSHLEY_CICD_PROJECT_DIR"
@@ -55,10 +55,10 @@ else
 
   echo "${NEXT_VERSION}" > "$VERSION_FILE"
   git add "$VERSION_FILE"
-  git commit -m "chore: bump version to ${NEXT_VERSION}"
+  git commit -m "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:+$TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX }chore: bump version to ${NEXT_VERSION}"
 fi
 HOTFIX_TAG_VERSION=$(version_to_tag "$NEXT_VERSION")
-FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX} Hotfix Version ${NEXT_VERSION}"
+FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:+$TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX }Hotfix Version ${NEXT_VERSION}"
 
 echo "Finishing hotfix: ${HOTFIX_BRANCH}"
 echo "Next version:    ${NEXT_VERSION}"

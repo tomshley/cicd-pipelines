@@ -9,7 +9,7 @@
 #   TOMSHLEY_CICD_PROJECT_DIR      — project root (set by platform script)
 #   TOMSHLEY_CICD_CURRENT_BRANCH   — the release/* branch name (set by platform script)
 # Optional env vars:
-#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX  — commit message prefix
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX  — commit message prefix (default: "", no prefix)
 #   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — skip-ci marker for develop merges
 set -euo pipefail
 if [ -n "${BASH_VERSION:-}" ]; then
@@ -25,7 +25,7 @@ source "$TOOLBOX_DIR/lib/flow.sh"
 
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required}"
 : "${TOMSHLEY_CICD_CURRENT_BRANCH:?required}"
-: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=Tomshley CI Pipeline}"
+: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=}"
 : "${TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER:=[skip ci]}"
 
 cd "$TOMSHLEY_CICD_PROJECT_DIR"
@@ -43,7 +43,7 @@ git_checkout_pull_ff "${RELEASE_BRANCH}"
 RELEASE_VERSION=$(version_read "$VERSION_FILE")
 version_validate "$RELEASE_VERSION"
 RELEASE_TAG_VERSION=$(version_to_tag "$RELEASE_VERSION")
-FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX} Release Version ${RELEASE_VERSION}"
+FINISH_MESSAGE="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:+$TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX }Release Version ${RELEASE_VERSION}"
 
 echo "Finishing release: ${RELEASE_BRANCH}"
 echo "Release version:  ${RELEASE_VERSION}"
