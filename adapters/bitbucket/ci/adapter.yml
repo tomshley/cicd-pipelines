@@ -20,8 +20,8 @@
 #     Default: pipeline@noreply.bitbucket.org
 #   TOMSHLEY_CICD_GIT_USER_NAME  — Git commit author display name
 #     Default: "Bitbucket Pipeline"
-#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for merge/tag messages
-#     Default: "Tomshley CI Pipeline"
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — Prefix for all flow commit/merge/tag messages
+#     Default: "" (no prefix)
 #   TOMSHLEY_CICD_FLOW_PUSH_TOKEN — App Password for git push (optional)
 #     Not needed on Bitbucket (native push triggers pipelines).
 #     If set, also set TOMSHLEY_CICD_FLOW_PUSH_USER to your Bitbucket username.

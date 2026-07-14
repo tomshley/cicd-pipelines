@@ -8,7 +8,7 @@
 # Required env vars:
 #   TOMSHLEY_CICD_PROJECT_DIR — project root (set by platform script)
 # Optional environment variables:
-#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — flow message prefix for git commits (default: "Tomshley CI Pipeline")
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX — flow message prefix for git commits (default: "", no prefix)
 set -euo pipefail
 if [ -n "${BASH_VERSION:-}" ]; then
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,7 +22,7 @@ source "$TOOLBOX_DIR/lib/git.sh"
 source "$TOOLBOX_DIR/lib/flow.sh"
 
 : "${TOMSHLEY_CICD_PROJECT_DIR:?required}"
-: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=Tomshley CI Pipeline}"
+: "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:=}"
 
 cd "$TOMSHLEY_CICD_PROJECT_DIR"
 
@@ -48,7 +48,7 @@ git checkout -B "release/${EXISTING_RELEASE}" "origin/release/${EXISTING_RELEASE
 echo "[ok] On release/${EXISTING_RELEASE}"
 echo "Merging develop into release/${EXISTING_RELEASE}..."
 export GIT_MERGE_AUTOEDIT=no
-git merge develop --no-ff --no-edit -m "chore: merge develop into release/${EXISTING_RELEASE}"
+git merge develop --no-ff --no-edit -m "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX:+$TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX }chore: merge develop into release/${EXISTING_RELEASE}"
 unset GIT_MERGE_AUTOEDIT
 VERSION_FILE="${TOMSHLEY_CICD_PROJECT_DIR}/VERSION"
 MERGED_VERSION=$(version_read "$VERSION_FILE")
