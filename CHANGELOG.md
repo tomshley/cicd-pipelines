@@ -6,7 +6,7 @@ This project follows Semantic Versioning.
 
 ---
 
-## Unreleased
+## v0.8.0 — 2026-07-14
 
 ### Added
 - **`TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN` — opt-in auto-derivation of the flow message prefix** — When `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX` is unset, this POSIX extended regex is matched against recent commit subjects on the checked-out branch and the first match becomes the prefix. Lets consumers propagate an issue-tracker key already present in branch history (e.g. `PROJ-[0-9]+`, `#[0-9]+`) into flow-generated bump/merge/tag messages — for example to satisfy a commit-message verification rule — without hardcoding a key. Scan depth configurable via `TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_SCAN_DEPTH` (default 20). Implemented once in `lib/flow.sh` (`flow_resolve_message_prefix`) and called by all six flow scripts. Unset pattern ⇒ behavior unchanged.
