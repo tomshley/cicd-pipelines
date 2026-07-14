@@ -496,6 +496,11 @@ dependency_scanning:
 #     Default: "" (no prefix)
 #     Override to customise commit messages, e.g. "Acme Corp" or "JIRA-123:"
 #     (useful to satisfy commit-message verification rules, e.g. GitLab's Jira issue verification)
+#   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN — Regex to auto-derive the prefix
+#     from recent commit subjects when FLOW_MESSAGE_PREFIX is unset, e.g. "PROJ-[0-9]+".
+#     Propagates an issue key already in branch history into flow messages without hardcoding one.
+#   TOMSHLEY_CICD_FLOW_SKIP_CI_MARKER — Marker appended to develop merge messages
+#     Default: "[skip ci]" — set to an empty string to disable
 #
 # Note: flow-feature-start (auto-create MR) is NOT implemented here.
 # MR/PR creation APIs are fundamentally platform-specific (GitLab MR vs
