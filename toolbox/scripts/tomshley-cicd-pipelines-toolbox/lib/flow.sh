@@ -36,7 +36,7 @@ flow_resolve_message_prefix() {
   fi
   _flow_prefix_scan_depth="${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_SCAN_DEPTH:-20}"
   TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX="$(git log -n "${_flow_prefix_scan_depth}" --format=%s 2>/dev/null \
-    | grep -oE "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN}" \
+    | grep -oE -- "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX_PATTERN}" \
     | head -n 1 || true)"
   if [ -n "${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX}" ]; then
     echo "Derived flow message prefix from recent commits: ${TOMSHLEY_CICD_FLOW_MESSAGE_PREFIX}"
