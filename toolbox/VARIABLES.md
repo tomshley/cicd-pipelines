@@ -38,6 +38,37 @@ Variables are organized by who sets them and where they are used.
 | `TOMSHLEY_CICD_MIRROR_SSH_KEY` | No | `""` | Path to SSH key file (e.g. in `.secure_files/`) |
 | `TOMSHLEY_CICD_MIRROR_FORCE_PUSH` | No | `"true"` | `true` = `--force`, `false` = `--force-with-lease` |
 
+### Publish Recipe Variables
+
+Recipes live under `publish/`, `build/`, `verify/`, and `retention/`. Each resolves
+the artifact policy (`platform/publish-policy.sh`), enforces the tag/VERSION guard,
+and then publishes. Consumers set the inputs below as job variables; the adapter
+supplies registry endpoints and credentials (see "Adapter-Mapped Variables").
+
+**Consumer inputs (you set these)**
+
+| Variable | Used by | Required? | Default | Description |
+|----------|---------|-----------|---------|-------------|
+| `TOMSHLEY_CICD_GENERIC_PACKAGE` | `publish/generic.sh` | Yes | — | Package name in the generic registry. Uploaded file is `<package>-<label>.<artifact extension>`. |
+| `TOMSHLEY_CICD_GENERIC_ARTIFACT` | `publish/generic.sh` | Yes | — | Path of the file to upload (built earlier in the job or fetched as a job artifact). |
+| `TOMSHLEY_CICD_PYPI_PACKAGE` | `publish/python.sh` | Yes | — | Distribution name exactly as the registry lists it; used to delete the previous rolling upload before re-publishing. |
+| `TOMSHLEY_CICD_CARGO_TARGETS` | `build/cargo-zigbuild.sh`, `publish/cargo.sh`, `publish/release-assets.sh` | Yes | — | Space-separated Rust target triples. Supported: `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-unknown-linux-musl`, `aarch64-unknown-linux-musl`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-gnu` (see `lib/rust-targets.sh`). |
+| `TOMSHLEY_CICD_CARGO_BINARY` | same three | Yes | — | Binary name the crate produces; also the generic package name. Published as `<binary>-<platform>[.exe]`. |
+| `TOMSHLEY_CICD_CARGO_NATIVE_ROOT` | `build/cargo-zigbuild.sh` | No | (unset = skip) | Directory receiving `<platform>/<binary>` copies plus `manifest.json` of SHA-256 digests — for embedding native binaries as resources. |
+| `TOMSHLEY_CICD_CARGO_CHECKSUM_FILE` | `build/cargo-zigbuild.sh` | No | `SHA256SUMS` | Where `sha256sum` output for the native resources is written. |
+| `TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE` | `publish/release-assets.sh` | No | (unset) | Checksum file attached to the release as `SHA256SUMS`. |
+| `TOMSHLEY_CICD_WEBJAR_POM` | `verify/webjar-pairing.sh` | No | `pom.xml` | POM whose project `<version>` must equal `<properties><upstreamVersion>`. |
+| `TOMSHLEY_CICD_RETENTION_DAYS` | `retention/package-retention.sh` | No | `30` | Age after which pinnable build packages are deleted. Release versions (digits and dots) and rolling versions (ending in `latest`) are always kept — the same rule as the container registry cleanup policy. |
+| `TOMSHLEY_CICD_PUBLISH_PROJECT_ID` | consumer build definitions | No | — | Passed through untouched for build tools that publish to a project-scoped registry (for example an sbt setting reading it). No toolbox script consumes it. |
+
+**Exported to the build by recipes (do NOT set manually)**
+
+| Variable | Set by | Value |
+|----------|--------|-------|
+| `TOMSHLEY_CICD_BUILD_REVISION` | `publish/sbt.sh`, `publish/python.sh` | `$CICD_PUBLISH_PINNABLE_TAG` / `$CICD_PUBLISH_ROLLING_TAG` for the channel being built; empty on tag pipelines so the build publishes its clean version. |
+| `TOMSHLEY_CICD_BUILD_CHANNEL` | `publish/python.sh` | `tag`, `pinnable`, or `rolling` — the Python build composes a PEP 440 version from this and the revision. |
+| `CICD_PUBLISH_*` | `platform/publish-policy.sh` | See "Artifact Tags" in the GitLab adapter: `PINNABLE`, `ROLLING`, `PINNABLE_TAG`, `ROLLING_TAG`, `VERSION`, `LABELS`. |
+
 ### Mirror Poll Variables (used by `mirror/poll-remote.sh`)
 
 For cron/scheduled-driven reverse mirroring. `poll-remote.sh` fetches a remote
@@ -142,6 +173,30 @@ Set them in the adapter YAML (GitLab `variables:` block, Bitbucket `script` expo
 | `TOMSHLEY_CICD_CURRENT_BRANCH` | No | `${CI_COMMIT_BRANCH}` | `${BITBUCKET_BRANCH}` |
 | `TOMSHLEY_CICD_TAG` | No | `${CI_COMMIT_TAG}` | `${BITBUCKET_TAG}` |
 
+### Adapter-Mapped Publish Variables (consumed by `platform/publish-policy.sh` and `publish/*.sh`)
+
+GitLab defaults every endpoint to the current project's package registry and the
+credential to the job token. Bitbucket has no package registry, so consumers set
+the endpoints and credential as repository variables or in `.secure_files/.env`.
+
+| Variable | Required? | GitLab source | Bitbucket source |
+|----------|-----------|--------------|------------------|
+| `TOMSHLEY_CICD_REF_SLUG` | Branch pipelines | `${CI_COMMIT_REF_SLUG}` | `${BITBUCKET_BRANCH}` normalized the same way (lowercase, non-alphanumerics to `-`, ≤ 63 chars) |
+| `TOMSHLEY_CICD_COMMIT_SHA` | Branch pipelines | `${CI_COMMIT_SHORT_SHA}` | first 8 chars of `${BITBUCKET_COMMIT}` |
+| `TOMSHLEY_CICD_PACKAGE_TOKEN` | Package publish | `${CI_JOB_TOKEN}` unless overridden | repository variable / `.secure_files/.env` |
+| `TOMSHLEY_CICD_PACKAGE_USER` | Python publish | `gitlab-ci-token` unless overridden | repository variable |
+| `TOMSHLEY_CICD_PUBLISH_AUTH_HEADER` | API uploads, retention | `JOB-TOKEN: <token>` unless overridden | repository variable (complete header) |
+| `TOMSHLEY_CICD_PACKAGES_API_URL` | Python rolling cleanup, retention | `<api>/projects/<id>/packages` | repository variable — collection URL supporting list and `DELETE <url>/<id>` |
+| `TOMSHLEY_CICD_GENERIC_UPLOAD_URL_TEMPLATE` | generic, Cargo, release assets | `<api>/projects/<id>/packages/generic/%s/%s/%s` | repository variable — `printf` template receiving package, version, filename |
+| `TOMSHLEY_CICD_RELEASE_API_URL` | release assets | `<api>/projects/<id>/releases` | repository variable (unset = upload only, no release) |
+| `TOMSHLEY_CICD_NPM_REGISTRY` | npm publish | `<api>/projects/<id>/packages/npm/` | repository variable |
+| `TOMSHLEY_CICD_NPM_AUTH_KEY` | npm publish | `//<host>/api/v4/projects/<id>/packages/npm/` | repository variable — `.npmrc` key that receives `:_authToken` |
+| `TOMSHLEY_CICD_PYPI_REPOSITORY_URL` | Python publish | `<api>/projects/<id>/packages/pypi` | repository variable |
+
+Deleting packages (Python rolling cleanup, retention) needs more than a job token
+grants on most registries; override `TOMSHLEY_CICD_PACKAGE_TOKEN` (and therefore
+the auth header) with a token that has package-maintainer permissions for those jobs.
+
 ### Derived by `toolbox-entry.sh` (do NOT set manually)
 
 | Variable | Logic |
@@ -157,7 +212,9 @@ and are NOT handled by the toolbox scripts.
 
 | Variable | Purpose |
 |----------|---------|
-| `CICD_PIPELINES_FLOW_IMAGE` | Image used by GitLab flow and mirror jobs. Defaults to the published runner image for consumers, but can be overridden to a compatible Alpine-based image with `git`, `bash`, and `curl` preinstalled or installable via `apk`. |
+| `CICD_PIPELINES_FLOW_IMAGE` | Image used by GitLab flow, mirror, and most publish-recipe jobs. Defaults to the published `cicd-runner-sbtdockertofu` image for consumers, but can be overridden to a compatible Alpine-based image with `git`, `bash`, and `curl` preinstalled or installable via `apk`. |
+| `CICD_PIPELINES_RUST_IMAGE` | Image for `.tomshley-cicd-cargo-zigbuild` — defaults to `cicd-runner-sbtrustdockertofu` (rustup, cargo-zigbuild, zig baked in). Toolchain versions change by bumping the runner, never by installing in a job. |
+| `CICD_PIPELINES_PYTHON_IMAGE` | Image for `.tomshley-cicd-publish-python` — defaults to `cicd-runner-pythondocker` (python3 + pip). |
 | `TOMSHLEY_CICD_FLOW_TYPE` | Flow type derived from branch pattern matching (e.g. `feature`, `release`, `hotfix`, `develop`, `main`, `tag`) |
 | `TOMSHLEY_CICD_BUILD_REVISION` | SHA-based revision suffix for build versioning |
 | `TOMSHLEY_CICD_BUILD_VERSION` | Full build version (read from `VERSION` file by adapter bootstrap) |

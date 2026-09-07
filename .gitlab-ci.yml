@@ -24,9 +24,11 @@ toolbox-tests:
   stage: .pre
   image: ${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}
   before_script:
-    - apk add --no-cache bash git grep gawk
+    - apk add --no-cache bash git grep gawk python3
   script:
     - bash toolbox/tests/run-all.sh
+    - python3 -m py_compile tools/ci-lint-local.py
+    - python3 tools/ci-lint-local.py --help >/dev/null
   rules:
     - when: always
 

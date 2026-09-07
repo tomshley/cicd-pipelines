@@ -6,22 +6,41 @@ Spec-driven, multi-CI-platform templates and runner images for Tomshley projects
 
     toolbox/                      Platform-agnostic shell scripts (OCI image)
     ├── scripts/                  Gitflow, mirror, secrets, platform abstraction
+    │   ├── flow/                 Release / hotfix lifecycle
+    │   ├── mirror/               Push and poll mirroring
+    │   ├── platform/             Sourced entry points (toolbox-entry, publish-policy)
+    │   ├── publish/              Publish recipes (generic, sbt, npm, python, cargo, release assets)
+    │   ├── build/                Build recipes (cargo cross-compilation)
+    │   ├── verify/               Fail-closed guards (tag/VERSION, WebJar pairing)
+    │   ├── retention/            Scheduled package retention
+    │   ├── lib/                  Shared helpers (sourced by scripts only)
     │   └── secrets/              Pluggable secret delivery (gitlab, delinea, etc.)
     ├── tests/                    Unit + integration tests
     ├── Dockerfile                Toolbox OCI image (COPY'd into runners)
     └── VARIABLES.md              Environment variable documentation
 
     runners/                      Build environment images (toolbox baked in)
-    ├── sbtdockertofu/            Scala + Docker + Terraform runner
+    ├── sbtdockertofu/            Scala + Docker + OpenTofu runner (flow image)
     ├── sbtallure/                Scala + Allure test reporting runner
-    └── sbtrustdockertofu/        Scala + Rust + Docker + Terraform runner
+    ├── sbtrustdockertofu/        Scala + Rust/Zig cross-compilation + Docker + OpenTofu runner
+    ├── pythondocker/             Python + pip + Docker runner
+    └── awsdockertofu/            AWS CLI + Docker + OpenTofu runner
 
     adapters/                     Platform-specific YAML templates
     ├── gitlab/ci/adapter.yml     GitLab CI adapter (all stages, jobs, policies)
     └── bitbucket/ci/adapter.yml  Bitbucket Pipelines adapter
 
+    tools/                        Maintainer tools (not shipped in the toolbox image)
+    └── ci-lint-local.py          Lint consumer pipelines against the working-tree adapter
+
     docker-bake.hcl               BuildKit bake file (toolbox + runners)
     Makefile                      Build/test/push targets
+
+Layering: base-containers owns toolchains (entry images such as `entry-rust`,
+`entry-zig`, `entry-sbt`); this repository composes them into runner images and
+ships pipeline logic. Adapters never pull third-party images or install
+toolchains at job time — a toolchain change is a base-containers bump followed by
+a runner rebuild.
 
 ## Naming Conventions
 
@@ -38,11 +57,11 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.8.0'
+        ref: 'v0.9.0'
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.8.0"   # pin to runner image version (match your ref)
+      CICD_PIPELINES_RUNNER_TAG: "0.9.0"   # pin to runner image version (match your ref)
 
 For self-hosting this repository before `0.6.1` runner images are published, temporarily
 override `CICD_PIPELINES_RUNNER_TAG` in this repo's `.gitlab-ci.yml` to a published
@@ -157,6 +176,51 @@ The `release-publish` and `hotfix-publish` jobs are intentional no-ops. Override
       script:
         - make push   # or sbt docker:publish, etc.
 
+## Publish Recipes
+
+Hidden job templates publish artifacts under the artifact policy — pinnable
+`{ref-slug}-{sha}` and rolling `{ref-slug}-latest` on branches, the clean version
+on tags — and refuse to publish a tag whose version differs from `VERSION`.
+Each recipe is a toolbox script; the adapter only maps GitLab variables and
+selects a house runner image.
+
+| Template | Publishes | Consumer inputs |
+|---|---|---|
+| `.tomshley-cicd-publish-generic` | One file to the generic package registry, once per label | `TOMSHLEY_CICD_GENERIC_PACKAGE`, `TOMSHLEY_CICD_GENERIC_ARTIFACT` |
+| `.tomshley-cicd-publish-sbt` | `sbt publish` with `TOMSHLEY_CICD_BUILD_REVISION` set from the policy | override `script` for multi-module builds |
+| `.tomshley-cicd-publish-npm` | One prerelease version per branch build, rolling dist-tag `{ref-slug}-latest`; clean version on tags | `package.json` version |
+| `.tomshley-cicd-publish-python` | Pinnable then rolling build; the build composes the PEP 440 version from `TOMSHLEY_CICD_BUILD_CHANNEL` + `TOMSHLEY_CICD_BUILD_REVISION` | `TOMSHLEY_CICD_PYPI_PACKAGE` |
+| `.tomshley-cicd-cargo-zigbuild` | Cross-compiles every target with cargo-zigbuild on `cicd-runner-sbtrustdockertofu` | `TOMSHLEY_CICD_CARGO_TARGETS`, `TOMSHLEY_CICD_CARGO_BINARY`, optional `TOMSHLEY_CICD_CARGO_NATIVE_ROOT` |
+| `.tomshley-cicd-publish-cargo` | Every binary as `<binary>-<platform>[.exe]` to the generic registry | same targets + binary |
+| `.tomshley-cicd-release-assets` | Tag pipelines only: binaries (+ `SHA256SUMS`) uploaded and linked from a release | same, optional `TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE` |
+| `.tomshley-cicd-package-retention` | Scheduled pipelines only: deletes pinnable packages older than `TOMSHLEY_CICD_RETENTION_DAYS` (default 30); release and rolling versions are kept | optional `TOMSHLEY_CICD_RETENTION_DAYS` |
+
+Fragments for consumer `before_script` chains: `.tomshley-cicd-tag-version-guard`
+and `.tomshley-cicd-webjar-pairing` (project `<version>` must equal
+`<properties><upstreamVersion>`).
+
+    publish:
+      extends: [.tomshley-cicd-publish-generic]
+      needs: [package]
+      variables:
+        TOMSHLEY_CICD_GENERIC_PACKAGE: my-spec
+        TOMSHLEY_CICD_GENERIC_ARTIFACT: my-spec.tar.gz
+
+    publish-maven:
+      extends: [.tomshley-cicd-publish-sbt]
+      script:
+        - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/sbt.sh" sbt +core/publish +plugin/publish
+
+Registry auth defaults to the job token. Deleting packages (Python rolling
+cleanup, retention) usually needs more; set `TOMSHLEY_CICD_PACKAGE_TOKEN` as a
+masked variable for those jobs. All inputs are documented in
+`toolbox/VARIABLES.md` under "Publish Recipe Variables".
+
+### Linting a consumer against the working-tree adapter
+
+    GITLAB_TOKEN=... python3 tools/ci-lint-local.py adapters/gitlab/ci/adapter.yml \
+      --project-id <consumer project id> ../consumer/.gitlab-ci.yml
+
 ## Mirror Push
 
 The adapter includes automated mirroring to a secondary remote (Bitbucket, GitHub, self-hosted, etc.).
@@ -226,7 +290,14 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 | `cicd-toolbox` | Toolbox scripts only (not run directly — used as build stage) |
 | `cicd-runner-sbtdockertofu` | JDK 21, SBT, Docker, Buildx, OpenTofu, Python 3 |
 | `cicd-runner-sbtallure` | JDK 21, SBT, Docker, Buildx, Allure 2.30 |
-| `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.83, Zig, Docker, Buildx, OpenTofu, Python 3 |
+| `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.83 (rustup + Darwin/Windows targets, cargo-zigbuild), Zig, Docker, Buildx, OpenTofu, Python 3 |
+| `cicd-runner-pythondocker` | Python 3, pip, Docker, Buildx |
+| `cicd-runner-awsdockertofu` | AWS CLI, Python 3, Docker, Buildx, OpenTofu |
+
+No runner ships Node.js yet; `.tomshley-cicd-publish-npm` installs `nodejs npm`
+from Alpine at job start when the image lacks them (the same fallback the
+ensure-tools fragment uses for git/curl). A dedicated polyglot runner is on the
+roadmap.
 
 ## Container Registry Cleanup Policy (GitLab)
 
@@ -262,7 +333,7 @@ Notes:
 
 - `VERSION` file is the release source of truth (SemVer)
 - `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
-- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.8.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.8.0"`)
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.9.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.9.0"`)
 - Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.
