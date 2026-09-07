@@ -93,6 +93,10 @@ assert_grep "Bitbucket adapter has core env anchor" '&toolbox-core-env' "$BITBUC
 assert_grep "Bitbucket adapter has mirror env anchor" '&toolbox-mirror-env' "$BITBUCKET_ADAPTER"
 assert_grep "Bitbucket adapter has bootstrap anchor" '&toolbox-bootstrap' "$BITBUCKET_ADAPTER"
 
+assert_grep "Bitbucket adapter has publish env anchor" '&toolbox-publish-env' "$BITBUCKET_ADAPTER"
+assert_grep "GitLab adapter has recipe env template" '^\.tomshley-cicd-recipe-env:' "$GITLAB_ADAPTER"
+assert_grep "GitLab artifact tags delegate to the toolbox policy" 'platform/publish-policy.sh' "$GITLAB_ADAPTER"
+
 echo
 
 echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"

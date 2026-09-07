@@ -57,6 +57,11 @@ variables:
   CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
   CICD_PIPELINES_RUNNER_TAG: "0.5.3"
   CICD_PIPELINES_FLOW_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
+  # Recipe images — house runners with the toolbox baked in. Toolchains are an
+  # image concern (base-containers entry images composed in runners/), never
+  # installed at job time.
+  CICD_PIPELINES_RUST_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtrustdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
+  CICD_PIPELINES_PYTHON_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-pythondocker:${CICD_PIPELINES_RUNNER_TAG}"
   TOMSHLEY_CICD_TOOLBOX_ROOT: "/opt/tomshley-cicd-pipelines-toolbox"
 #endregion
 
@@ -337,40 +342,52 @@ workflow:
 #region Artifact Tags
 # Unified artifact publish policy and tag format.
 # Exports: CICD_PUBLISH_PINNABLE, CICD_PUBLISH_ROLLING,
-#          CICD_PUBLISH_PINNABLE_TAG, CICD_PUBLISH_ROLLING_TAG.
+#          CICD_PUBLISH_PINNABLE_TAG, CICD_PUBLISH_ROLLING_TAG,
+#          CICD_PUBLISH_VERSION, CICD_PUBLISH_LABELS.
 #
 # Format pattern (all artifact types):
 #   Branch pipelines: {ref-slug}-{sha} (pinnable), {ref-slug}-latest (rolling)
-#   Tag pipelines:    "" (pinnable, clean version), N/A (no rolling)
+#   Tag pipelines:    "" (pinnable, clean version), "latest" (rolling alias);
+#                     CICD_PUBLISH_VERSION carries the tag without its "v"
 #
 # Consumers:
 #   Container templates alias BASE_CONTAINERS_TAG=$CICD_PUBLISH_PINNABLE_TAG
 #   SBT publish sets TOMSHLEY_CICD_BUILD_REVISION=$CICD_PUBLISH_PINNABLE_TAG
+#
+# Implementation: maps the GitLab ref slug / short SHA / tag into the toolbox
+# interface and sources platform/publish-policy.sh when the toolbox is
+# present. The inline block below is the same policy for images without the
+# toolbox (.tomshley-docker-runtime runs on base-containers images).
 
 .before-artifact-tags:
   before_script:
+    - export TOMSHLEY_CICD_REF_SLUG="${CI_COMMIT_REF_SLUG:-}"
+    - export TOMSHLEY_CICD_COMMIT_SHA="${CI_COMMIT_SHORT_SHA:-}"
+    - export TOMSHLEY_CICD_TAG="${CI_COMMIT_TAG:-}"
     - |
       set -e
 
-      if [ -n "$CI_COMMIT_TAG" ]; then
+      if [ -f "${TOMSHLEY_CICD_TOOLBOX_ROOT}/platform/publish-policy.sh" ]; then
+        . "${TOMSHLEY_CICD_TOOLBOX_ROOT}/platform/publish-policy.sh"
+      elif [ -n "$CI_COMMIT_TAG" ]; then
         # Tag (release) pipeline — clean version, single publish
         export CICD_PUBLISH_PINNABLE="true"
         export CICD_PUBLISH_ROLLING="false"
         export CICD_PUBLISH_PINNABLE_TAG=""
         export CICD_PUBLISH_ROLLING_TAG="latest"
+        export CICD_PUBLISH_VERSION="${CI_COMMIT_TAG#v}"
+        export CICD_PUBLISH_LABELS="${CICD_PUBLISH_VERSION}"
+        echo "Artifact publish tags resolved (inline): tag ${CICD_PUBLISH_VERSION}"
       else
         # Branch / MR pipeline — two publishes
         export CICD_PUBLISH_PINNABLE="true"
         export CICD_PUBLISH_ROLLING="true"
         export CICD_PUBLISH_PINNABLE_TAG="${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}"
         export CICD_PUBLISH_ROLLING_TAG="${CI_COMMIT_REF_SLUG}-latest"
+        export CICD_PUBLISH_VERSION=""
+        export CICD_PUBLISH_LABELS="${CICD_PUBLISH_PINNABLE_TAG} ${CICD_PUBLISH_ROLLING_TAG}"
+        echo "Artifact publish tags resolved (inline): ${CICD_PUBLISH_LABELS}"
       fi
-
-      echo "Artifact publish tags resolved:"
-      echo "  CICD_PUBLISH_PINNABLE     = $CICD_PUBLISH_PINNABLE"
-      echo "  CICD_PUBLISH_ROLLING      = $CICD_PUBLISH_ROLLING"
-      echo "  CICD_PUBLISH_PINNABLE_TAG = ${CICD_PUBLISH_PINNABLE_TAG:-<empty>}"
-      echo "  CICD_PUBLISH_ROLLING_TAG  = ${CICD_PUBLISH_ROLLING_TAG:-N/A}"
 #endregion
 
 
@@ -845,4 +862,152 @@ tomshley-cicd-mirror-poll:
   allow_failure: true
   script:
     - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/poll-remote.sh"
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Publish Recipes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ---------------------------------------------------------------------------
+# Hidden job templates for publishing artifacts under the artifact policy
+# (.before-artifact-tags): generic files, sbt/Maven, npm, Python, Cargo
+# binaries, release assets, plus the tag/VERSION guard, WebJar pairing check,
+# and scheduled package retention.
+#
+# Every recipe is implemented by the platform-neutral toolbox; this adapter
+# only maps GitLab variables into the TOMSHLEY_CICD_* interface and runs the
+# script. Recipes run on house runner images (CICD_PIPELINES_*_IMAGE) so the
+# toolbox and toolchains are present without any job-time installation.
+#
+# Consumers extend a recipe and set its TOMSHLEY_CICD_* inputs as job
+# variables; see toolbox/VARIABLES.md "Publish Recipe Variables".
+#
+# Registry auth defaults to the job token. Override TOMSHLEY_CICD_PACKAGE_TOKEN
+# (masked CI/CD variable or .secure_files/.env) when a recipe needs
+# permissions the job token lacks — for example, deleting packages during
+# retention requires a token with Maintainer-level package access.
+# ---------------------------------------------------------------------------
+
+
+#region Recipe Environment
+.tomshley-cicd-recipe-env:
+  image: ${CICD_PIPELINES_FLOW_IMAGE}
+  before_script:
+    - !reference [.tomshley-cicd-secure-files, before_script]
+    - if [ -f "${CI_PROJECT_DIR}/.secure_files/.env" ]; then set -a; source "${CI_PROJECT_DIR}/.secure_files/.env"; set +a; fi
+    - export TOMSHLEY_CICD_PROJECT_DIR="${CI_PROJECT_DIR}"
+    - export TOMSHLEY_CICD_REF_SLUG="${CI_COMMIT_REF_SLUG:-}"
+    - export TOMSHLEY_CICD_COMMIT_SHA="${CI_COMMIT_SHORT_SHA:-}"
+    - export TOMSHLEY_CICD_TAG="${CI_COMMIT_TAG:-}"
+    - export TOMSHLEY_CICD_PACKAGE_TOKEN="${TOMSHLEY_CICD_PACKAGE_TOKEN:-${CI_JOB_TOKEN:-}}"
+    - export TOMSHLEY_CICD_PACKAGE_USER="${TOMSHLEY_CICD_PACKAGE_USER:-gitlab-ci-token}"
+    - export TOMSHLEY_CICD_PUBLISH_AUTH_HEADER="${TOMSHLEY_CICD_PUBLISH_AUTH_HEADER:-JOB-TOKEN: ${TOMSHLEY_CICD_PACKAGE_TOKEN}}"
+    - export TOMSHLEY_CICD_PACKAGES_API_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages"
+    - export TOMSHLEY_CICD_GENERIC_UPLOAD_URL_TEMPLATE="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/%s/%s/%s"
+    - export TOMSHLEY_CICD_RELEASE_API_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
+    - export TOMSHLEY_CICD_NPM_REGISTRY="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/npm/"
+    - export TOMSHLEY_CICD_NPM_AUTH_KEY="//${CI_SERVER_HOST}/api/v4/projects/${CI_PROJECT_ID}/packages/npm/"
+    - export TOMSHLEY_CICD_PYPI_REPOSITORY_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"
+    - !reference [.tomshley-cicd-debug, before_script]
+#endregion
+
+
+#region Verify: tag/VERSION guard and WebJar pairing
+# Fragments for consumer before_script chains (both execute toolbox scripts;
+# nothing is sourced into the job shell).
+.tomshley-cicd-tag-version-guard:
+  before_script:
+    - export TOMSHLEY_CICD_TAG="${CI_COMMIT_TAG:-}" TOMSHLEY_CICD_PROJECT_DIR="${CI_PROJECT_DIR}"
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/verify/tag-version-guard.sh"
+
+.tomshley-cicd-webjar-pairing:
+  before_script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/verify/webjar-pairing.sh"
+#endregion
+
+
+#region Publish: generic package
+# Consumer inputs: TOMSHLEY_CICD_GENERIC_PACKAGE, TOMSHLEY_CICD_GENERIC_ARTIFACT
+.tomshley-cicd-publish-generic:
+  extends: [.flow-artifact-publish, .tomshley-cicd-recipe-env]
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/generic.sh"
+#endregion
+
+
+#region Publish: sbt
+# Default command is "sbt publish"; multi-module builds override script:
+#   script:
+#     - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/sbt.sh" sbt +core/publish +plugin/publish
+.tomshley-cicd-publish-sbt:
+  extends: [.flow-artifact-publish, .tomshley-cicd-recipe-env]
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/sbt.sh" sbt publish
+#endregion
+
+
+#region Publish: npm
+.tomshley-cicd-publish-npm:
+  extends: [.flow-artifact-publish, .tomshley-cicd-recipe-env]
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/npm.sh"
+#endregion
+
+
+#region Publish: Python
+# Consumer inputs: TOMSHLEY_CICD_PYPI_PACKAGE
+.tomshley-cicd-publish-python:
+  extends: [.flow-artifact-publish, .tomshley-cicd-recipe-env]
+  image: ${CICD_PIPELINES_PYTHON_IMAGE}
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/python.sh"
+#endregion
+
+
+#region Build: Cargo cross-compilation
+# Consumer inputs: TOMSHLEY_CICD_CARGO_TARGETS, TOMSHLEY_CICD_CARGO_BINARY,
+#                  TOMSHLEY_CICD_CARGO_NATIVE_ROOT (optional)
+.tomshley-cicd-cargo-zigbuild:
+  image: ${CICD_PIPELINES_RUST_IMAGE}
+  stage: build
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/build/cargo-zigbuild.sh"
+#endregion
+
+
+#region Publish: Cargo binaries
+# Consumer inputs: TOMSHLEY_CICD_CARGO_TARGETS, TOMSHLEY_CICD_CARGO_BINARY
+.tomshley-cicd-publish-cargo:
+  extends: [.flow-artifact-publish, .tomshley-cicd-recipe-env]
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/cargo.sh"
+#endregion
+
+
+#region Publish: release assets (tag pipelines)
+# Consumer inputs: TOMSHLEY_CICD_CARGO_TARGETS, TOMSHLEY_CICD_CARGO_BINARY,
+#                  TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE (optional)
+.tomshley-cicd-release-assets:
+  extends: [.flow-artifact-publish, .tomshley-cicd-recipe-env]
+  rules:
+    - if: '$TOMSHLEY_CICD_FLOW_TYPE == "tag"'
+      when: manual
+      allow_failure: true
+    - when: never
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/release-assets.sh"
+#endregion
+
+
+#region Retention: scheduled package cleanup
+# Consumer inputs: TOMSHLEY_CICD_RETENTION_DAYS (optional, default 30)
+.tomshley-cicd-package-retention:
+  extends: [.tomshley-cicd-recipe-env]
+  stage: .post
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - when: never
+  script:
+    - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/retention/package-retention.sh"
 #endregion

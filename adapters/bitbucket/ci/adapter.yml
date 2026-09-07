@@ -32,11 +32,18 @@
 #   TOMSHLEY_CICD_SECRETS_BOOTSTRAP — Set to "false" to skip the pre-toolbox
 #     secrets hook (default: "true")
 #
+# Publish recipes (custom pipelines publish-*, cargo-zigbuild, release-assets,
+# verify-*, package-retention) read their registry endpoints and credentials
+# from repository variables or .secure_files/.env — Bitbucket has no package
+# registry to default them to. See "Publish Recipe Variables" in
+# toolbox/VARIABLES.md.
+#
 # See toolbox/VARIABLES.md for all available environment variables.
 
 definitions:
   yaml-anchors:
     - &flow-image-name registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}
+    - &rust-image-name registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines/cicd-runner-sbtrustdockertofu:${CICD_PIPELINES_RUNNER_TAG}
     - &toolbox-ensure-tools |
         if ! command -v git >/dev/null 2>&1 || ! command -v bash >/dev/null 2>&1 || ! command -v curl >/dev/null 2>&1; then
           if command -v apk >/dev/null 2>&1; then
@@ -103,6 +110,22 @@ definitions:
         export TOMSHLEY_CICD_GIT_USER_EMAIL="${TOMSHLEY_CICD_GIT_USER_EMAIL:-pipeline@noreply.bitbucket.org}"
         export TOMSHLEY_CICD_GIT_USER_NAME="${TOMSHLEY_CICD_GIT_USER_NAME:-Bitbucket Pipeline}"
         export TOMSHLEY_CICD_FLOW_PUSH_USER="${TOMSHLEY_CICD_FLOW_PUSH_USER:-}"
+    - &toolbox-publish-env |
+        # Artifact policy inputs — the same normalization GitLab applies to its ref slug
+        # (lowercase, non-alphanumerics to "-", collapsed, trimmed, at most 63 characters).
+        export TOMSHLEY_CICD_REF_SLUG="$(printf '%s' "${BITBUCKET_BRANCH:-}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/--*/-/g' | cut -c1-63 | sed 's/^-//; s/-$//')"
+        export TOMSHLEY_CICD_COMMIT_SHA="$(printf '%s' "${BITBUCKET_COMMIT:-}" | cut -c1-8)"
+        # Registry endpoints and credentials come from repository variables or .secure_files/.env;
+        # Bitbucket has no package registry of its own to default them to.
+        export TOMSHLEY_CICD_PACKAGE_TOKEN="${TOMSHLEY_CICD_PACKAGE_TOKEN:-}"
+        export TOMSHLEY_CICD_PACKAGE_USER="${TOMSHLEY_CICD_PACKAGE_USER:-}"
+        export TOMSHLEY_CICD_PUBLISH_AUTH_HEADER="${TOMSHLEY_CICD_PUBLISH_AUTH_HEADER:-}"
+        export TOMSHLEY_CICD_PACKAGES_API_URL="${TOMSHLEY_CICD_PACKAGES_API_URL:-}"
+        export TOMSHLEY_CICD_GENERIC_UPLOAD_URL_TEMPLATE="${TOMSHLEY_CICD_GENERIC_UPLOAD_URL_TEMPLATE:-}"
+        export TOMSHLEY_CICD_RELEASE_API_URL="${TOMSHLEY_CICD_RELEASE_API_URL:-}"
+        export TOMSHLEY_CICD_NPM_REGISTRY="${TOMSHLEY_CICD_NPM_REGISTRY:-}"
+        export TOMSHLEY_CICD_NPM_AUTH_KEY="${TOMSHLEY_CICD_NPM_AUTH_KEY:-}"
+        export TOMSHLEY_CICD_PYPI_REPOSITORY_URL="${TOMSHLEY_CICD_PYPI_REPOSITORY_URL:-}"
     - &toolbox-mirror-env |
         export TOMSHLEY_CICD_MIRROR_URL="${TOMSHLEY_CICD_MIRROR_URL:-}"
         export TOMSHLEY_CICD_MIRROR_BRANCHES="${TOMSHLEY_CICD_MIRROR_BRANCHES:-main}"
@@ -241,3 +264,102 @@ pipelines:
             - *toolbox-mirror-poll-env
             - *toolbox-bootstrap
             - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/mirror/poll-remote.sh"
+    # Publish recipes. Each recipe is a toolbox script; consumers set its
+    # TOMSHLEY_CICD_* inputs as repository variables (see toolbox/VARIABLES.md
+    # "Publish Recipe Variables") and, where the default image lacks a
+    # toolchain, supply a step-level image.
+    publish-generic:
+      - step:
+          name: "Publish Generic Package"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/generic.sh"
+    publish-sbt:
+      - step:
+          name: "Publish sbt"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/sbt.sh" sbt publish
+    publish-npm:
+      - step:
+          name: "Publish npm"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/npm.sh"
+    publish-python:
+      - step:
+          name: "Publish Python"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/python.sh"
+    cargo-zigbuild:
+      - step:
+          name: "Build Cargo Targets"
+          image:
+            name: *rust-image-name
+            username: $REGISTRY_USER
+            password: $REGISTRY_TOKEN
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/build/cargo-zigbuild.sh"
+    publish-cargo:
+      - step:
+          name: "Publish Cargo Binaries"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/cargo.sh"
+    release-assets:
+      - step:
+          name: "Publish Release Assets"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-debug
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - *toolbox-bootstrap
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/publish/release-assets.sh"
+    verify-tag-version:
+      - step:
+          name: "Verify Tag Matches VERSION"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-core-env
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/verify/tag-version-guard.sh"
+    verify-webjar-pairing:
+      - step:
+          name: "Verify WebJar Pairing"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-core-env
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/verify/webjar-pairing.sh"
+    package-retention:
+      - step:
+          name: "Package Retention"
+          script:
+            - *toolbox-ensure-tools
+            - *toolbox-core-env
+            - *toolbox-publish-env
+            - bash "${TOMSHLEY_CICD_TOOLBOX_ROOT}/retention/package-retention.sh"
