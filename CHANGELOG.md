@@ -6,6 +6,19 @@ This project follows Semantic Versioning.
 
 ---
 
+## Unreleased
+
+### Added
+- **Publish recipes** — toolbox scripts under `publish/`, `build/`, `verify/`, and `retention/`, exposed by both adapters (GitLab hidden jobs `.tomshley-cicd-publish-{generic,sbt,npm,python,cargo}`, `.tomshley-cicd-cargo-zigbuild`, `.tomshley-cicd-release-assets`, `.tomshley-cicd-package-retention`; Bitbucket custom pipelines of the same names). Every recipe resolves the artifact policy, enforces the tag/VERSION guard, and publishes pinnable + rolling labels on branches and the clean version on tags. npm's rolling channel is a dist-tag on the pinnable version; Python's rolling upload replaces the previous one. Inputs follow the `TOMSHLEY_CICD_*` convention and are documented in `toolbox/VARIABLES.md`.
+- **`platform/publish-policy.sh`** — the artifact policy as a sourced toolbox script. `.before-artifact-tags` now delegates to it when the toolbox is present (inline fallback unchanged for toolbox-less images) and additionally exports `CICD_PUBLISH_VERSION` and `CICD_PUBLISH_LABELS`.
+- **Verify fragments** `.tomshley-cicd-tag-version-guard` and `.tomshley-cicd-webjar-pairing` for consumer `before_script` chains.
+- **`CICD_PIPELINES_RUST_IMAGE` / `CICD_PIPELINES_PYTHON_IMAGE`** adapter variables selecting the `sbtrustdockertofu` and `pythondocker` runners for the Cargo and Python recipes. Recipes run only on house runner images; no third-party images and no job-time toolchain installation.
+- **Scheduled package retention** applies the container registry cleanup rule to packages: release and rolling versions kept, pinnable builds deleted after `TOMSHLEY_CICD_RETENTION_DAYS`.
+- `tools/ci-lint-local.py` — maintainer tool to lint consumer pipelines against the working-tree adapter.
+- Tests: `test-publish-recipes.sh` (policy, guards, generic/cargo/release-asset uploads against a recording fake `curl`), `test-retention.sh` (pagination, keep/delete decisions); adapter conformance now covers every job-facing toolbox category and forbids sourcing anything but `platform/` scripts into the job shell.
+
+---
+
 ## v0.8.0 — 2026-07-14
 
 ### Added
