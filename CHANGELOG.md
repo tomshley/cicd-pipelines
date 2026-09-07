@@ -6,7 +6,7 @@ This project follows Semantic Versioning.
 
 ---
 
-## Unreleased
+## v0.9.0 — 2026-09-07
 
 ### Added
 - **Publish recipes** — toolbox scripts under `publish/`, `build/`, `verify/`, and `retention/`, exposed by both adapters (GitLab hidden jobs `.tomshley-cicd-publish-{generic,sbt,npm,python,cargo}`, `.tomshley-cicd-cargo-zigbuild`, `.tomshley-cicd-release-assets`, `.tomshley-cicd-package-retention`; Bitbucket custom pipelines of the same names). Every recipe resolves the artifact policy, enforces the tag/VERSION guard, and publishes pinnable + rolling labels on branches and the clean version on tags. npm's rolling channel is a dist-tag on the pinnable version; Python's rolling upload replaces the previous one. Inputs follow the `TOMSHLEY_CICD_*` convention and are documented in `toolbox/VARIABLES.md`.
