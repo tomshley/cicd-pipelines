@@ -246,7 +246,9 @@ workflow:
     - !reference [.tomshley-cicd-secure-files, before_script]
     - export TOMSHLEY_CICD_BUILD_VERSION="$(cat "${CI_PROJECT_DIR}/VERSION" 2>/dev/null || echo 'dev')"
     - !reference [.tomshley-cicd-debug, before_script]
-    - echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"
+    # Quoted: an unquoted command containing ": " parses as a YAML mapping, and
+    # GitLab then rejects the whole configuration for every consumer.
+    - 'echo "Build Version: ${TOMSHLEY_CICD_BUILD_VERSION}"'
 #endregion
 
 
@@ -902,7 +904,9 @@ tomshley-cicd-mirror-poll:
     - export TOMSHLEY_CICD_TAG="${CI_COMMIT_TAG:-}"
     - export TOMSHLEY_CICD_PACKAGE_TOKEN="${TOMSHLEY_CICD_PACKAGE_TOKEN:-${CI_JOB_TOKEN:-}}"
     - export TOMSHLEY_CICD_PACKAGE_USER="${TOMSHLEY_CICD_PACKAGE_USER:-gitlab-ci-token}"
-    - export TOMSHLEY_CICD_PUBLISH_AUTH_HEADER="${TOMSHLEY_CICD_PUBLISH_AUTH_HEADER:-JOB-TOKEN: ${TOMSHLEY_CICD_PACKAGE_TOKEN}}"
+    # Quoted: the header value contains ": ", which makes an unquoted entry a
+    # YAML mapping instead of a command.
+    - 'export TOMSHLEY_CICD_PUBLISH_AUTH_HEADER="${TOMSHLEY_CICD_PUBLISH_AUTH_HEADER:-JOB-TOKEN: ${TOMSHLEY_CICD_PACKAGE_TOKEN}}"'
     - export TOMSHLEY_CICD_PACKAGES_API_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages"
     - export TOMSHLEY_CICD_GENERIC_UPLOAD_URL_TEMPLATE="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/%s/%s/%s"
     - export TOMSHLEY_CICD_RELEASE_API_URL="${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases"
