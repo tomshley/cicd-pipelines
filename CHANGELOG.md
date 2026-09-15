@@ -6,7 +6,7 @@ This project follows Semantic Versioning.
 
 ---
 
-## Unreleased
+## v0.10.0 — 2026-09-15
 
 ### Changed
 - `BASE_CONTAINERS_UPSTREAM_TAG` bumped from `0.5.0` to `0.6.0` across `PINNED_PIPELINE_VERSIONS` and `.gitlab-ci.yml`. The Rust runner's entry images (`entry-rust-1_98-vendored`, `entry-zig-0_16-vendored`) are first published in that release, and every image stage in it honors the requested target architecture.
