@@ -6,6 +6,15 @@ This project follows Semantic Versioning.
 
 ---
 
+## v0.10.0 — 2026-09-15
+
+### Changed
+- `BASE_CONTAINERS_UPSTREAM_TAG` bumped from `0.5.0` to `0.6.0` across `PINNED_PIPELINE_VERSIONS` and `.gitlab-ci.yml`. The Rust runner's entry images (`entry-rust-1_98-vendored`, `entry-zig-0_16-vendored`) are first published in that release, and every image stage in it honors the requested target architecture.
+- `cicd-runner-sbtrustdockertofu` moved to Rust 1.98.1 and Zig 0.16.0 with `cargo-zigbuild` 0.23.3, adding rustup targets for Linux GNU/musl, Darwin, and `x86_64-pc-windows-gnu`. The rustup toolchain version now tracks the copied entry image through the `RUST_VERSION` build argument, and the runner's build stages resolve at the target architecture.
+- Retired the self-hosting bootstrap override of `CICD_PIPELINES_RUNNER_TAG` in this repository's internal `.gitlab-ci.yml`. It still named `0.5.4` and a condition — the `v0.5.5` tag pipeline publishing updated runner images — that was met several releases ago. It now names the current published runner tag. No internal job selected a runner image through it: the internal pipeline overrides `CICD_PIPELINES_FLOW_IMAGE` to a base-containers image, and the rust/python recipe images are consumer-facing. The adapter's own default is unchanged.
+
+---
+
 ## v0.9.0 — 2026-09-07
 
 ### Added
