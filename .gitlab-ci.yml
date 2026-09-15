@@ -11,10 +11,11 @@ include:
 variables:
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
   BASE_CONTAINERS_UPSTREAM_TAG: 0.6.0
-  # Intentional self-hosting bootstrap pin:
-  # keep using the last published runner image until the v0.5.5 tag pipeline
-  # publishes the updated runner images.
-  CICD_PIPELINES_RUNNER_TAG: "0.5.4"
+  # No internal job selects a runner image: CICD_PIPELINES_FLOW_IMAGE is
+  # overridden below to a base-containers image, and the recipe images
+  # (rust/python) are consumer-facing. This names the current published runner
+  # tag so any future job here starts from it rather than the adapter default.
+  CICD_PIPELINES_RUNNER_TAG: "0.9.1"
   CICD_PIPELINES_FLOW_IMAGE: "${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
   TOMSHLEY_CICD_TOOLBOX_ROOT: "${CI_PROJECT_DIR}/toolbox/scripts/tomshley-cicd-pipelines-toolbox"
 
