@@ -2,17 +2,19 @@
 # Copyright (c) 2024–2026 Tomshley LLC
 
 FROM --platform=$BUILDPLATFORM toolbox_docker_build_ref AS toolbox
-FROM --platform=$BUILDPLATFORM entry_docker_cli_buildx_docker_build_ref AS docker-tools
-FROM --platform=$BUILDPLATFORM lang_java_jdk_docker_build_ref AS jdk
-FROM --platform=$BUILDPLATFORM entry_sbt_docker_build_ref AS sbt
-FROM --platform=$BUILDPLATFORM entry_opentofu_docker_build_ref AS opentofu
-FROM --platform=$BUILDPLATFORM entry_rust_docker_build_ref AS rust
-FROM --platform=$BUILDPLATFORM entry_zig_docker_build_ref AS zig
-FROM --platform=$BUILDPLATFORM os_docker_build_ref
+FROM --platform=$TARGETPLATFORM entry_docker_cli_buildx_docker_build_ref AS docker-tools
+FROM --platform=$TARGETPLATFORM lang_java_jdk_docker_build_ref AS jdk
+FROM --platform=$TARGETPLATFORM entry_sbt_docker_build_ref AS sbt
+FROM --platform=$TARGETPLATFORM entry_opentofu_docker_build_ref AS opentofu
+FROM --platform=$TARGETPLATFORM entry_rust_docker_build_ref AS rust
+FROM --platform=$TARGETPLATFORM entry_zig_docker_build_ref AS zig
+FROM --platform=$TARGETPLATFORM os_docker_build_ref
 
 ENV PYTHONUNBUFFERED=1
 
 ARG BINARIES_PREFIX="/opt"
+ARG RUST_VERSION="1.98.1"
+ARG CARGO_ZIGBUILD_VERSION="0.23.3"
 
 COPY --from=toolbox /opt/tomshley-cicd-pipelines-toolbox/ /opt/tomshley-cicd-pipelines-toolbox/
 COPY --from=docker-tools /usr/local/bin/docker /usr/local/bin/docker
@@ -35,11 +37,11 @@ ENV RUSTUP_HOME=/root/.rustup
 ENV PATH="/root/.cargo/bin:${BINARIES_PREFIX}/rust/bin:${BINARIES_PREFIX}/zig:${PATH}"
 
 # ---- Cross-compilation: rustup + Darwin targets + cargo-zigbuild ----
-# Rustup installs a distributable 1.83.0 toolchain to /root/.cargo so it
+# Rustup installs the same Rust version as the entry image so it
 # can manage cross-compilation targets (linked toolchains can't do this).
 # The vendored /opt/rust stays intact as a fallback on PATH.
-# NOTE: cargo-zigbuild pinned to 0.20.1 (compatible with Rust 1.83.0).
-# Version 0.22.1+ requires Rust 1.88 which doesn't exist yet.
+# cargo-zigbuild is pinned alongside Rust and Zig for cross-compilation.
+# Update the entry-image references when changing this toolchain.
 RUN set -eux; \
     apk update; \
     apk upgrade; \
@@ -67,9 +69,9 @@ RUN set -eux; \
     ln -sf python3 /usr/bin/python; \
     ln -sf /etc/ssl/certs/java/cacerts ${JAVA_HOME}/lib/security/cacerts; \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-      | sh -s -- -y --no-modify-path --default-toolchain 1.83.0; \
-    rustup target add x86_64-unknown-linux-gnu aarch64-apple-darwin x86_64-apple-darwin; \
-    cargo install cargo-zigbuild@0.20.1 --locked; \
+      | sh -s -- -y --no-modify-path --default-toolchain "${RUST_VERSION}"; \
+    rustup target add x86_64-unknown-linux-gnu aarch64-unknown-linux-gnu x86_64-unknown-linux-musl aarch64-unknown-linux-musl aarch64-apple-darwin x86_64-apple-darwin x86_64-pc-windows-gnu; \
+    cargo install "cargo-zigbuild@${CARGO_ZIGBUILD_VERSION}" --locked; \
     rm -rf /tmp/* /root/.rustup/tmp
 
 WORKDIR /

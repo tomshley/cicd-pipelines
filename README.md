@@ -42,6 +42,8 @@ ships pipeline logic. Adapters never pull third-party images or install
 toolchains at job time — a toolchain change is a base-containers bump followed by
 a runner rebuild.
 
+Entry images provide reusable tools; use-case images provide application runtime foundations. Runner images are CI build, test, and publication environments and include the toolbox. The Rust runner uses a rustup-managed compiler for cross-target installation; its Rust version must match the copied entry toolchain. Application runtime images do not inherit this runner.
+
 ## Naming Conventions
 
 | Scope | Pattern | Example |
@@ -290,9 +292,11 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 | `cicd-toolbox` | Toolbox scripts only (not run directly — used as build stage) |
 | `cicd-runner-sbtdockertofu` | JDK 21, SBT, Docker, Buildx, OpenTofu, Python 3 |
 | `cicd-runner-sbtallure` | JDK 21, SBT, Docker, Buildx, Allure 2.30 |
-| `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.83 (rustup + Darwin/Windows targets, cargo-zigbuild), Zig, Docker, Buildx, OpenTofu, Python 3 |
+| `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.98.1 (rustup + Linux GNU/musl, Darwin, and Windows targets, cargo-zigbuild 0.23.3), Zig 0.16.0, Docker, Buildx, OpenTofu, Python 3 |
 | `cicd-runner-pythondocker` | Python 3, pip, Docker, Buildx |
 | `cicd-runner-awsdockertofu` | AWS CLI, Python 3, Docker, Buildx, OpenTofu |
+
+The Rust runner pins cargo-zigbuild 0.23.3 because 0.23.4 breaks Darwin exported-symbols list handling with Zig 0.16. Track the [upstream linker regression](https://github.com/rust-cross/cargo-zigbuild/issues/479) before upgrading this pin.
 
 No runner ships Node.js yet; `.tomshley-cicd-publish-npm` installs `nodejs npm`
 from Alpine at job start when the image lacks them (the same fallback the
