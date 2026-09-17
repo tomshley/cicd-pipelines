@@ -24,7 +24,8 @@ Spec-driven, multi-CI-platform templates and runner images for Tomshley projects
     ├── sbtallure/                Scala + Allure test reporting runner
     ├── sbtrustdockertofu/        Scala + Rust/Zig cross-compilation + Docker + OpenTofu runner
     ├── pythondocker/             Python + pip + Docker runner
-    └── awsdockertofu/            AWS CLI + Docker + OpenTofu runner
+    ├── awsdockertofu/            AWS CLI + Docker + OpenTofu runner
+    └── tofu/                     Provider-neutral OpenTofu runner
 
     adapters/                     Platform-specific YAML templates
     ├── gitlab/ci/adapter.yml     GitLab CI adapter (all stages, jobs, policies)
@@ -295,6 +296,7 @@ All runners use Alpine 3.23 base with the toolbox baked in via `COPY --from=tool
 | `cicd-runner-sbtrustdockertofu` | JDK 21, SBT, Rust 1.98.1 (rustup + Linux GNU/musl, Darwin, and Windows targets, cargo-zigbuild 0.23.3), Zig 0.16.0, Docker, Buildx, OpenTofu, Python 3 |
 | `cicd-runner-pythondocker` | Python 3, pip, Docker, Buildx |
 | `cicd-runner-awsdockertofu` | AWS CLI, Python 3, Docker, Buildx, OpenTofu |
+| `cicd-runner-tofu` | OpenTofu, git, git-flow, make, jq — no cloud CLI, no Docker |
 
 The Rust runner pins cargo-zigbuild 0.23.3 because 0.23.4 breaks Darwin exported-symbols list handling with Zig 0.16. Track the [upstream linker regression](https://github.com/rust-cross/cargo-zigbuild/issues/479) before upgrading this pin.
 

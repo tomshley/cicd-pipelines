@@ -215,6 +215,7 @@ and are NOT handled by the toolbox scripts.
 | `CICD_PIPELINES_FLOW_IMAGE` | Image used by GitLab flow, mirror, and most publish-recipe jobs. Defaults to the published `cicd-runner-sbtdockertofu` image for consumers, but can be overridden to a compatible Alpine-based image with `git`, `bash`, and `curl` preinstalled or installable via `apk`. |
 | `CICD_PIPELINES_RUST_IMAGE` | Image for `.tomshley-cicd-cargo-zigbuild` — defaults to `cicd-runner-sbtrustdockertofu` (rustup, cargo-zigbuild, zig baked in). Toolchain versions change by bumping the runner, never by installing in a job. |
 | `CICD_PIPELINES_PYTHON_IMAGE` | Image for `.tomshley-cicd-publish-python` — defaults to `cicd-runner-pythondocker` (python3 + pip). |
+| `CICD_PIPELINES_TOFU_IMAGE` | Image for OpenTofu-only stack jobs — defaults to `cicd-runner-tofu`. Provider-neutral (no cloud CLI baked in), so cloud auth arrives via OIDC at job time. |
 | `TOMSHLEY_CICD_FLOW_TYPE` | Flow type derived from branch pattern matching (e.g. `feature`, `release`, `hotfix`, `develop`, `main`, `tag`) |
 | `TOMSHLEY_CICD_BUILD_REVISION` | SHA-based revision suffix for build versioning |
 | `TOMSHLEY_CICD_BUILD_VERSION` | Full build version (read from `VERSION` file by adapter bootstrap) |
