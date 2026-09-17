@@ -68,6 +68,7 @@ variables:
   # installed at job time.
   CICD_PIPELINES_RUST_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtrustdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
   CICD_PIPELINES_PYTHON_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-pythondocker:${CICD_PIPELINES_RUNNER_TAG}"
+  CICD_PIPELINES_TOFU_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-tofu:${CICD_PIPELINES_RUNNER_TAG}"
   TOMSHLEY_CICD_TOOLBOX_ROOT: "/opt/tomshley-cicd-pipelines-toolbox"
 #endregion
 
