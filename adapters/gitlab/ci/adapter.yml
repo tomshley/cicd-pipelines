@@ -55,7 +55,7 @@ variables:
   SECRET_DETECTION_ENABLED: 'true'
   DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
   CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
-  CICD_PIPELINES_RUNNER_TAG: "0.5.3"
+  CICD_PIPELINES_RUNNER_TAG: "0.11.0"
   # Base-container images used by the docker runtime and the flow publish jobs.
   # Consumers may override either variable top-level; jobs that reference them
   # do not inherit defaults from any shared template, so a consumer that does
