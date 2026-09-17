@@ -60,11 +60,11 @@ In your project's `.gitlab-ci.yml`:
 
     include:
       - project: 'tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines'
-        ref: 'v0.10.0'
+        ref: 'v0.11.0'
         file: '/adapters/gitlab/ci/adapter.yml'
 
     variables:
-      CICD_PIPELINES_RUNNER_TAG: "0.10.0"   # pin to runner image version (match your ref)
+      CICD_PIPELINES_RUNNER_TAG: "0.11.0"   # pin to runner image version (match your ref)
 
 When self-hosting this repository across a runner-image change, `CICD_PIPELINES_RUNNER_TAG`
 in this repo's `.gitlab-ci.yml` must name an already published tag, so the release pipeline
@@ -339,7 +339,7 @@ Notes:
 
 - `VERSION` file is the release source of truth (SemVer)
 - `release-start` and `hotfix-finish` auto-bump patch versions; major/minor bumps can be set manually before release
-- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.10.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.10.0"`)
+- Consumer projects should pin both template ref and runner tag to the same release (for example: `ref: 'v0.11.0'` and `CICD_PIPELINES_RUNNER_TAG: "0.11.0"`)
 - Runner images are also tagged with `TOMSHLEY_CICD_BUILD_REVISION` for branch-specific testing
 
 See [ROADMAP.md](ROADMAP.md) for planned milestones.
