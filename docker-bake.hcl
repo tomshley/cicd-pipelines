@@ -31,7 +31,7 @@ variable "BASE_CONTAINERS_UPSTREAM_TAG" {
 # ---------------------------------------------------------------------------
 
 group "default" {
-  targets = ["toolbox", "runner-sbtdockertofu", "runner-sbtrustdockertofu", "runner-sbtallure", "runner-pythondocker", "runner-awsdockertofu"]
+  targets = ["toolbox", "runner-sbtdockertofu", "runner-sbtrustdockertofu", "runner-sbtallure", "runner-pythondocker", "runner-awsdockertofu", "runner-tofu"]
 }
 
 # ---------------------------------------------------------------------------
@@ -134,6 +134,21 @@ target "runner-awsdockertofu" {
   tags = [
     "${REGISTRY}/cicd-runner-awsdockertofu:${TAG}",
     "${REGISTRY}/cicd-runner-awsdockertofu:${TAG_LATEST}"
+  ]
+  platforms = ["linux/amd64"]
+}
+
+target "runner-tofu" {
+  context    = "runners/tofu"
+  dockerfile = "Dockerfile"
+  contexts = {
+    toolbox_docker_build_ref                     = "target:toolbox"
+    os_docker_build_ref                          = "docker-image://${BASE_CONTAINERS_REGISTRY}/base-alpine-3_23-upstream:${BASE_CONTAINERS_UPSTREAM_TAG}"
+    entry_opentofu_docker_build_ref              = "docker-image://${BASE_CONTAINERS_REGISTRY}/entry-opentofu-1_11-vendored:${BASE_CONTAINERS_UPSTREAM_TAG}"
+  }
+  tags = [
+    "${REGISTRY}/cicd-runner-tofu:${TAG}",
+    "${REGISTRY}/cicd-runner-tofu:${TAG_LATEST}"
   ]
   platforms = ["linux/amd64"]
 }
