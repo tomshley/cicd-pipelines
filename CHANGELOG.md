@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 This project follows Semantic Versioning.
 ---
 
+## v0.11.0 — 2026-09-17
+
+### Added
+- **`cicd-runner-tofu`** — a provider-neutral OpenTofu runner. Stacks whose jobs only run `tofu` previously had to borrow `cicd-runner-awsdockertofu` and inherit an AWS CLI they never call, which reads wrong for a stack spanning more than one cloud. The new image carries OpenTofu, git, git-flow, make, curl and jq on the shared Alpine base with the toolbox, and deliberately ships no cloud CLI and no Docker, so cloud credentials reach the provider through OIDC at job time. Select it with the new `CICD_PIPELINES_TOFU_IMAGE` adapter variable.
+
+### Changed
+- The adapter's `CICD_PIPELINES_RUNNER_TAG` default now tracks the release it ships in, rather than remaining at `0.5.3`. A consumer that included the adapter without pinning the variable silently resolved runner images several releases behind the templates it was running. Consumers that pin the variable — the documented practice — are unaffected.
+
+---
+
 ## v0.10.1 — 2026-09-16
 
 ### Fixed
