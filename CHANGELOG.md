@@ -3,6 +3,13 @@
 All notable changes to this project are documented in this file.
 
 This project follows Semantic Versioning.
+---
+
+## v0.10.1 — 2026-09-16
+
+### Fixed
+- The GitLab adapter now declares top-level defaults for `BASE_CONTAINERS_REGISTRY` and `BASE_CONTAINERS_UPSTREAM_TAG`. The docker runtime's image and dind service and the `tomshley-cicd-flow-release-publish` / `tomshley-cicd-flow-hotfix-publish` jobs reference both variables without inheriting the git-push template that used to carry them, so a consumer that did not declare them resolved an empty image name at job start. Consumers may still override either variable top-level; the default tracks base-containers `0.6.0`.
+
 
 ---
 
