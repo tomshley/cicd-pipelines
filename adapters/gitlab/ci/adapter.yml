@@ -55,7 +55,7 @@ variables:
   SECRET_DETECTION_ENABLED: 'true'
   DS_DEFAULT_ANALYZERS: 'bundler-audit,retire.js,gemnasium,gemnasium-maven'
   CICD_PIPELINES_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/cicd-pipelines
-  CICD_PIPELINES_RUNNER_TAG: "0.11.0"
+  CICD_PIPELINES_RUNNER_TAG: "0.12.0"
   # Base-container images used by the docker runtime and the flow publish jobs.
   # Consumers may override either variable top-level; jobs that reference them
   # do not inherit defaults from any shared template, so a consumer that does
@@ -428,6 +428,59 @@ workflow:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Image Publish Preflight
+# ═══════════════════════════════════════════════════════════════════════════════
+
+#region Image Publish Preflight
+# A preflight check, not an atomic registry lock. Configure immutable release
+# tags in the registry to prevent concurrent writers from overwriting a tag.
+# Requires the toolbox, curl and jq. For images on the instance registry
+# (CI_REGISTRY) this adapter exchanges the existing job credentials for a
+# pull token. Other registries use the caller's
+# TOMSHLEY_CICD_REGISTRY_AUTH_FILE.
+.tomshley-cicd-image-tag-guard:
+  before_script:
+    - |
+      (
+        set -eu
+        [ -n "${CI_COMMIT_TAG:-}" ] || exit 0
+        export TOMSHLEY_CICD_TAG="${CI_COMMIT_TAG}"
+        : "${TOMSHLEY_CICD_REGISTRY_IMAGE:?required for a release image check}"
+        if [ -z "${TOMSHLEY_CICD_REGISTRY_AUTH_FILE:-}" ] &&
+           [ "${TOMSHLEY_CICD_REGISTRY_IMAGE%%/*}" = "${CI_REGISTRY:-}" ]; then
+          : "${CI_SERVER_URL:?}" "${CI_REGISTRY_USER:?}" "${CI_REGISTRY_PASSWORD:?}"
+          umask 077
+          auth_work="$(mktemp -d)"
+          trap 'rm -rf "$auth_work"' EXIT
+          trap 'exit 1' HUP INT TERM
+          {
+            printf 'Authorization: Basic '
+            printf '%s:%s' "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" | base64 | tr -d '\n'
+            printf '\n'
+          } > "$auth_work/basic"
+          # Keep GitLab's credential exchange here, outside the portable check.
+          # No redirects, insecure TLS, credential arguments or response logging.
+          rc=0
+          curl -q --silent --fail --proto '=https' --connect-timeout 15 \
+            --max-time 30 --max-filesize 1048576 --get \
+            --header "@$auth_work/basic" \
+            --data-urlencode 'service=container_registry' \
+            --data-urlencode "scope=repository:${TOMSHLEY_CICD_REGISTRY_IMAGE#*/}:pull" \
+            --output "$auth_work/token.json" "${CI_SERVER_URL%/}/jwt/auth" 2>/dev/null \
+            || rc=$?
+          [ "$rc" -eq 0 ] || { echo "ERROR: registry authentication failed (curl exit ${rc})" >&2; exit 1; }
+          jq -er '"Authorization: Bearer " + ((.token // .access_token) |
+            select(type == "string" and test("^[A-Za-z0-9._-]+$")))' \
+            "$auth_work/token.json" > "$auth_work/bearer" 2>/dev/null \
+            || { echo "ERROR: registry returned no usable token" >&2; exit 1; }
+          export TOMSHLEY_CICD_REGISTRY_AUTH_FILE="$auth_work/bearer"
+        fi
+        sh "${TOMSHLEY_CICD_TOOLBOX_ROOT}/verify/image-tag-guard.sh"
+      )
+#endregion
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Docker Runtime
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -490,6 +543,77 @@ secret_detection:
 
 dependency_scanning:
   stage: security.pre-build
+
+# Tag coverage for secret detection, Semgrep, and the three Gemnasium jobs.
+# The twins inherit analyzer configuration, reports, and failure policy;
+# their rules keep tag scheduling separate from upstream branch/MR rules.
+# Other upstream analyzers keep their own scheduling. See README for scope.
+secret_detection-tag:
+  extends: secret_detection
+  variables:
+    GIT_DEPTH: "0"
+    SECRET_DETECTION_LOG_OPTIONS: "$CI_COMMIT_SHA"
+  rules:
+    - if: '$SECRET_DETECTION_DISABLED == "true" || $SECRET_DETECTION_DISABLED == "1"'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+
+semgrep-sast-tag:
+  extends: semgrep-sast
+  rules:
+    - if: '$SAST_DISABLED == "true" || $SAST_DISABLED == "1"'
+      when: never
+    - if: '$SAST_EXCLUDED_ANALYZERS =~ /semgrep/'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+      exists: !reference [.semgrep-exist-rules, exists]
+
+gemnasium-dependency_scanning-tag:
+  extends: gemnasium-dependency_scanning
+  rules:
+    - if: '$DEPENDENCY_SCANNING_DISABLED == "true" || $DEPENDENCY_SCANNING_DISABLED == "1"'
+      when: never
+    - if: '$DS_EXCLUDED_ANALYZERS =~ /gemnasium([^-]|$)/'
+      when: never
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/ && $CI_GITLAB_FIPS_MODE == "true"'
+      exists: !reference [.gemnasium-shared-rule, exists]
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+        DS_REMEDIATE: "false"
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/'
+      exists: !reference [.gemnasium-shared-rule, exists]
+
+gemnasium-maven-dependency_scanning-tag:
+  extends: gemnasium-maven-dependency_scanning
+  rules:
+    - if: '$DEPENDENCY_SCANNING_DISABLED == "true" || $DEPENDENCY_SCANNING_DISABLED == "1"'
+      when: never
+    - if: '$DS_EXCLUDED_ANALYZERS =~ /gemnasium-maven/'
+      when: never
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/ && $CI_GITLAB_FIPS_MODE == "true"'
+      exists: !reference [.gemnasium-maven-shared-rule, exists]
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/'
+      exists: !reference [.gemnasium-maven-shared-rule, exists]
+
+gemnasium-python-dependency_scanning-tag:
+  extends: gemnasium-python-dependency_scanning
+  rules:
+    - if: '$DEPENDENCY_SCANNING_DISABLED == "true" || $DEPENDENCY_SCANNING_DISABLED == "1"'
+      when: never
+    - if: '$DS_EXCLUDED_ANALYZERS =~ /gemnasium-python/'
+      when: never
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/ && $CI_GITLAB_FIPS_MODE == "true"'
+      exists: !reference [.gemnasium-python-shared-rule, exists]
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/'
+      exists: !reference [.gemnasium-python-shared-rule, exists]
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/ && $PIP_REQUIREMENTS_FILE && $CI_GITLAB_FIPS_MODE == "true"'
+      variables:
+        DS_IMAGE_SUFFIX: "-fips"
+    - if: '$CI_COMMIT_TAG && $GITLAB_FEATURES =~ /\bdependency_scanning\b/ && $PIP_REQUIREMENTS_FILE'
 
 # Post-build scanning (container scanning) is opt-in.
 # Consumer adds this to their .gitlab-ci.yml when they have a built image:
