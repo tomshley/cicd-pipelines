@@ -11,7 +11,7 @@ Spec-driven, multi-CI-platform templates and runner images for Tomshley projects
     │   ├── platform/             Sourced entry points (toolbox-entry, publish-policy)
     │   ├── publish/              Publish recipes (generic, sbt, npm, python, cargo, release assets)
     │   ├── build/                Build recipes (cargo cross-compilation)
-    │   ├── verify/               Fail-closed guards (tag/VERSION, WebJar pairing)
+    │   ├── verify/               Fail-closed guards (tag/VERSION, WebJar pairing, image tag)
     │   ├── retention/            Scheduled package retention
     │   ├── lib/                  Shared helpers (sourced by scripts only)
     │   └── secrets/              Pluggable secret delivery (gitlab, delinea, etc.)
@@ -198,9 +198,10 @@ selects a house runner image.
 | `.tomshley-cicd-release-assets` | Tag pipelines only: binaries (+ `SHA256SUMS`) uploaded and linked from a release | same, optional `TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE` |
 | `.tomshley-cicd-package-retention` | Scheduled pipelines only: deletes pinnable packages older than `TOMSHLEY_CICD_RETENTION_DAYS` (default 30); release and rolling versions are kept | optional `TOMSHLEY_CICD_RETENTION_DAYS` |
 
-Fragments for consumer `before_script` chains: `.tomshley-cicd-tag-version-guard`
-and `.tomshley-cicd-webjar-pairing` (project `<version>` must equal
-`<properties><upstreamVersion>`).
+Fragments for consumer `before_script` chains: `.tomshley-cicd-tag-version-guard`,
+`.tomshley-cicd-webjar-pairing` (project `<version>` must equal
+`<properties><upstreamVersion>`), and `.tomshley-cicd-image-tag-guard` (see
+"Image publication preflight").
 
     publish:
       extends: [.tomshley-cicd-publish-generic]
@@ -219,10 +220,137 @@ cleanup, retention) usually needs more; set `TOMSHLEY_CICD_PACKAGE_TOKEN` as a
 masked variable for those jobs. All inputs are documented in
 `toolbox/VARIABLES.md` under "Publish Recipe Variables".
 
+### Image publication preflight
+
+`verify/image-tag-guard.sh` is CI-independent: it runs from any CI — or
+locally — with only a POSIX shell, `curl`, and `jq`. The caller supplies
+the fully-qualified image repository (registry host and repository path,
+no tag or digest) in `TOMSHLEY_CICD_REGISTRY_IMAGE` — Docker Hub
+shorthand is not normalized — and the event tag in `TOMSHLEY_CICD_TAG`;
+the checked version defaults to the tag minus a leading `v` and can be
+overridden with `CICD_PUBLISH_VERSION`. An empty tag (branch pipeline)
+is a no-op that exits before `curl` or `jq` is required; a missing image
+on a tag pipeline fails.
+
+Registry authentication belongs to the caller. When
+`TOMSHLEY_CICD_REGISTRY_AUTH_FILE` names a file containing an OCI
+`Authorization:` header line, the guard forwards it to `curl` by path —
+never as a command argument — and a missing or empty file fails the
+check. Without the file the probe is anonymous. The guard never runs
+`docker login`, reads no Docker client configuration, and does not
+emulate credential helpers.
+
+The check issues a read-only `GET /v2/<repository>/manifests/<tag>`
+request over HTTPS — never plain HTTP, never a redirect, TLS always
+verified — with a 15 second connect timeout, a 30 second overall limit,
+and a 1 MiB response cap. An HTTP 200 (a manifest or a manifest index)
+refuses publication; an HTTP 404 permits the push only when the body is a
+single JSON object whose non-empty `errors` array contains exclusively
+`MANIFEST_UNKNOWN` or `NAME_UNKNOWN` codes — a proxy's generic 404 page
+does not count. Anything else — authentication, network, TLS, or
+rate-limit failures and malformed or mixed responses — fails closed.
+Invoke it immediately before the push, inside the publish job or step,
+not as a separate job.
+
+The guard observes registry state at one moment and does not reserve a tag.
+Only registry-side immutable-tag enforcement can prevent two simultaneous
+writers from racing the check; configure that policy in the registry — the
+toolkit changes none.
+
+GitLab (`!reference` inside `script` runs the check between build and push;
+the base `.tomshley-docker-runtime` image has no toolbox, so the job runs on
+a runner image that carries it — the runtime's `before_script` still logs
+into the project registry). The fragment needs `curl` and `jq`, which the
+toolbox runner images already provide. When the image's registry host
+equals `CI_REGISTRY` (the instance container registry) and no auth file is
+given, the fragment exchanges the existing
+`CI_REGISTRY_USER`/`CI_REGISTRY_PASSWORD` job credentials for a
+`repository:<image>:pull` bearer token at `${CI_SERVER_URL}/jwt/auth` and
+hands the guard that header file; the job token can always read its own
+project's repository, and a repository it cannot read fails closed. An
+explicit `TOMSHLEY_CICD_REGISTRY_AUTH_FILE` always wins, and other
+registries always use the caller's file:
+
+    publish:docker:
+      extends: .tomshley-docker-runtime
+      image: ${CICD_PIPELINES_FLOW_IMAGE}
+      variables:
+        TOMSHLEY_CICD_REGISTRY_IMAGE: "$CI_REGISTRY_IMAGE/image"
+      script:
+        - docker build -t "${TOMSHLEY_CICD_REGISTRY_IMAGE}:${CICD_PUBLISH_VERSION}" .
+        - !reference [.tomshley-cicd-image-tag-guard, before_script]
+        - docker push "${TOMSHLEY_CICD_REGISTRY_IMAGE}:${CICD_PUBLISH_VERSION}"
+      rules:
+        - if: '$CI_COMMIT_TAG'
+          when: manual
+
+Bitbucket (merge into the copied adapter alongside the existing
+`pipelines.custom` entries; it uses the adapter's toolbox/Docker flow
+image). Supply push credentials through the consumer's existing credential
+delivery. Separately, set `TOMSHLEY_CICD_REGISTRY_AUTH_FILE` to a protected
+file containing the registry's pull authorization header, prepared by that
+registry's authentication flow. A Docker login password is not necessarily
+an OCI bearer token. The guard consumes the header file without copying it
+into the repository:
+
+    pipelines:
+      tags:
+        'v*':
+          - step:
+              name: "Publish Image"
+              services: [docker]
+              script:
+                - *toolbox-core-env
+                - export TOMSHLEY_CICD_REGISTRY_IMAGE="registry.example.com/group/project/image"
+                - test -s "${TOMSHLEY_CICD_REGISTRY_AUTH_FILE:?registry pull authorization file required}"
+                - printf '%s' "$PUBLISH_REGISTRY_TOKEN" | docker login registry.example.com --username "$PUBLISH_REGISTRY_USER" --password-stdin
+                - . "${TOMSHLEY_CICD_TOOLBOX_ROOT}/platform/publish-policy.sh"
+                - docker build -t "${TOMSHLEY_CICD_REGISTRY_IMAGE}:${CICD_PUBLISH_VERSION}" .
+                - *image-tag-guard
+                - docker push "${TOMSHLEY_CICD_REGISTRY_IMAGE}:${CICD_PUBLISH_VERSION}"
+
+Any CI or local caller can invoke the helper directly with explicit portable
+variables:
+
+    TOMSHLEY_CICD_TAG="v1.2.3" \
+    TOMSHLEY_CICD_REGISTRY_IMAGE="registry.example.com/group/project/image" \
+    sh /opt/tomshley-cicd-pipelines-toolbox/verify/image-tag-guard.sh
+
 ### Linting a consumer against the working-tree adapter
 
     GITLAB_TOKEN=... python3 tools/ci-lint-local.py adapters/gitlab/ci/adapter.yml \
       --project-id <consumer project id> ../consumer/.gitlab-ci.yml
+
+## Security Scans on Tag Pipelines (GitLab)
+
+Upstream analyzer rules match branch and merge-request pipelines only, so the
+adapter adds tag-only twins for the five pre-build analyzers it covers:
+`secret_detection`, `semgrep-sast`, and the three Gemnasium dependency
+scanners (`gemnasium`, `gemnasium-maven`, `gemnasium-python`). Each twin
+`extends` its analyzer — script, image, stage, and `allow_failure` policy
+stay upstream's — and re-adds the analyzer's own conditions scoped to
+`$CI_COMMIT_TAG`: disable switches (`*_DISABLED`), exclusion lists
+(`*_EXCLUDED_ANALYZERS`), dependency-scanning license gating
+(`GITLAB_FEATURES`), file detection (`exists:` references to the upstream
+shared rules), and the FIPS image suffix (`CI_GITLAB_FIPS_MODE` →
+`DS_IMAGE_SUFFIX: "-fips"`), including the custom `PIP_REQUIREMENTS_FILE`
+variant for `gemnasium-python`.
+
+`semgrep-sast-tag` scans every Semgrep-supported file. GitLab Advanced SAST
+has no tag twin, so upstream's branch-pipeline hand-off of overlapping
+languages to Advanced SAST (its `sast_advanced` rules) is intentionally not
+reproduced on tags.
+
+`secret_detection-tag` also sets `GIT_DEPTH: "0"` (full clone) and
+`SECRET_DETECTION_LOG_OPTIONS: "$CI_COMMIT_SHA"` so the scan covers the full
+reachable history ending at the tagged commit rather than the default
+last-commit-only comparison.
+
+The twins keep the upstream `allow_failure` policy, so tag scans surface
+reports without turning into a release-blocking gate. Other upstream
+analyzers keep their own scheduling — the adapter does not newly enable the
+optional or advanced analyzers. These are GitLab-native integrations; this
+change does not add scanners to Bitbucket.
 
 ## Mirror Push
 
@@ -330,6 +458,11 @@ Notes:
     make check              # Dry-run bake file
 
 ## Testing
+
+The toolbox tests need `bash`, `git`, GNU `grep`, `gawk`, `jq`, and
+`python3` — the packages the `toolbox-tests` job installs. Publish and
+guard tests run against a fake `curl`, so they need no Docker daemon,
+external registry, or production credentials.
 
 - `toolbox/tests/` — Unit and integration tests for toolbox scripts
 - `toolbox/tests/run-all.sh` — Runs all test suites
