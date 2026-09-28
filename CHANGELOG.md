@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 This project follows Semantic Versioning.
 ---
 
+## v0.12.0 — 2026-09-28
+
+### Added
+- **`verify/image-tag-guard.sh`** — a portable, read-only OCI manifest preflight that refuses publication when the release tag already exists in the target registry. A pinnable publish that reuses a tag silently overwrites the previously released image, so the guard probes `GET /v2/<repository>/manifests/<tag>` over pinned HTTPS and permits the push only when the registry confirms absence with a structured `MANIFEST_UNKNOWN`/`NAME_UNKNOWN` 404; every other answer — transport, TLS, auth, proxy, or an unexpected body — fails closed. Credentials travel to `curl` as a `--header @file`, never as arguments or in diagnostics. Inputs: `TOMSHLEY_CICD_REGISTRY_IMAGE`, `TOMSHLEY_CICD_TAG`, optional `CICD_PUBLISH_VERSION` and `TOMSHLEY_CICD_REGISTRY_AUTH_FILE`, documented in `toolbox/VARIABLES.md`.
+- **`.tomshley-cicd-image-tag-guard`** — GitLab fragment for consumer `before_script`/`script` chains between `docker build` and `docker push`. When the image lives on the instance registry (`CI_REGISTRY`) it exchanges the job's existing registry credentials for a `repository:<image>:pull` bearer token, so same-project publishing needs no extra credential setup; other registries use the caller's authorization header file.
+- **`image-tag-guard`** — the same guard as a Bitbucket adapter anchor, gated on `BITBUCKET_TAG`.
+- **Tag-pipeline twins for the five covered pre-build security analyzers** — `secret_detection-tag`, `semgrep-sast-tag`, `gemnasium-dependency_scanning-tag`, `gemnasium-maven-dependency_scanning-tag`, `gemnasium-python-dependency_scanning-tag`. Upstream analyzer rules match branch and merge-request pipelines only, so a release pipeline previously ran no scan. Each twin `extends` its analyzer — script, image, stage, and `allow_failure` stay upstream's — and re-applies the analyzer's own disable, exclusion, license-gate, file-detection, and FIPS image conditions scoped to `$CI_COMMIT_TAG`. `secret_detection-tag` clones full history and scans everything reachable from the tagged commit; the Advanced SAST hand-off is intentionally not reproduced on tags, so Semgrep scans its full supported file set. See the README's "Security Scans on Tag Pipelines".
+- Tests: `test-tag-security-scans.sh` asserts each twin's rules and both adapter entry points; `test-publish-recipes.sh` drives the guard and both adapter wrappers against a recording fake `curl`, covering credential-by-path forwarding, fail-closed responses, and credential-free diagnostics.
+
+---
+
 ## v0.11.0 — 2026-09-17
 
 ### Added
