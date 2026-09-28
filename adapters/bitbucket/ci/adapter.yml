@@ -126,6 +126,11 @@ definitions:
         export TOMSHLEY_CICD_NPM_REGISTRY="${TOMSHLEY_CICD_NPM_REGISTRY:-}"
         export TOMSHLEY_CICD_NPM_AUTH_KEY="${TOMSHLEY_CICD_NPM_AUTH_KEY:-}"
         export TOMSHLEY_CICD_PYPI_REPOSITORY_URL="${TOMSHLEY_CICD_PYPI_REPOSITORY_URL:-}"
+    # Invoke immediately before publication, after registry authentication.
+    - &image-tag-guard |
+        if [ -n "${BITBUCKET_TAG:-}" ]; then
+          TOMSHLEY_CICD_TAG="${BITBUCKET_TAG}" sh "${TOMSHLEY_CICD_TOOLBOX_ROOT}/verify/image-tag-guard.sh"
+        fi
     - &toolbox-mirror-env |
         export TOMSHLEY_CICD_MIRROR_URL="${TOMSHLEY_CICD_MIRROR_URL:-}"
         export TOMSHLEY_CICD_MIRROR_BRANCHES="${TOMSHLEY_CICD_MIRROR_BRANCHES:-main}"
