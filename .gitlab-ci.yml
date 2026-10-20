@@ -10,7 +10,7 @@ include:
 
 variables:
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
-  BASE_CONTAINERS_UPSTREAM_TAG: 0.6.0
+  BASE_CONTAINERS_UPSTREAM_TAG: 0.6.1
   # No internal job selects a runner image: CICD_PIPELINES_FLOW_IMAGE is
   # overridden below to a base-containers image, and the recipe images
   # (rust/python) are consumer-facing. This names the current published runner
