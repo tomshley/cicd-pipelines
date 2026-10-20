@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 This project follows Semantic Versioning.
 ---
 
+## v0.13.0 — 2026-10-19
+
+### Added
+- **`TOMSHLEY_CICD_RELEASE_EXTRA_ASSETS`** — `publish/release-assets.sh` accepts a space-separated list of extra release files uploaded under their basenames beside the target binaries: legal files, SBOMs, or any release file that is not a compiled artifact. A consumer that names one in its checksum file covers it under the same basename; a missing file fails closed before any upload. Documented in `toolbox/VARIABLES.md` and covered by `test-publish-recipes.sh`.
+
+### Changed
+- `BASE_CONTAINERS_UPSTREAM_TAG` bumped from `0.6.0` to `0.6.1` across `PINNED_PIPELINE_VERSIONS`, `adapters/gitlab/ci/adapter.yml`, and `.gitlab-ci.yml`. The 0.6.1 Rust 1.83 vendored image carries `build-base`, which a musl toolchain needs to link build scripts, procedural macros, and tests.
+
+---
+
 ## v0.12.0 — 2026-09-28
 
 ### Added
