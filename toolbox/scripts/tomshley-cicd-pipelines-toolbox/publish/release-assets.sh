@@ -13,6 +13,8 @@
 #
 # Optional env vars (set by consumer):
 #   TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE      — checksum file to attach as SHA256SUMS
+#   TOMSHLEY_CICD_RELEASE_EXTRA_ASSETS      — space-separated extra files
+#                                              uploaded under their basenames
 #
 # Required env vars (set by adapter YAML):
 #   TOMSHLEY_CICD_TAG                        — release tag (this recipe is tag-only)
@@ -35,6 +37,7 @@ source "$TOOLBOX_DIR/lib/rust-targets.sh"
 : "${TOMSHLEY_CICD_GENERIC_UPLOAD_URL_TEMPLATE:?required — set by adapter YAML}"
 : "${TOMSHLEY_CICD_PUBLISH_AUTH_HEADER:?required — set by adapter YAML}"
 : "${TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE:=}"
+: "${TOMSHLEY_CICD_RELEASE_EXTRA_ASSETS:=}"
 : "${TOMSHLEY_CICD_RELEASE_API_URL:=}"
 
 source "$TOOLBOX_DIR/platform/publish-policy.sh"
@@ -65,6 +68,16 @@ if [ -n "${TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE}" ]; then
   [ -f "${TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE}" ] || log_fatal "checksum file not found: ${TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE}"
   upload "${TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE}" SHA256SUMS
 fi
+
+# Extra assets travel under their basename — legal files, SBOMs, or any
+# release file that is not a target binary. A consumer that names one in
+# its checksum file covers it under that same basename.
+extra_assets=()
+read -r -a extra_assets <<< "${TOMSHLEY_CICD_RELEASE_EXTRA_ASSETS}"
+for asset in ${extra_assets[@]+"${extra_assets[@]}"}; do
+  [ -f "$asset" ] || log_fatal "extra release asset not found: ${asset}"
+  upload "$asset" "$(basename "$asset")"
+done
 
 [ -n "${TOMSHLEY_CICD_RELEASE_API_URL}" ] || { log_info "TOMSHLEY_CICD_RELEASE_API_URL unset — assets uploaded, no release created"; exit 0; }
 
