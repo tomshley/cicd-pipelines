@@ -61,7 +61,7 @@ variables:
   # do not inherit defaults from any shared template, so a consumer that does
   # not declare them resolves an empty image name at job start.
   BASE_CONTAINERS_REGISTRY: registry.gitlab.com/tomshley/brands/global/tware/tech/products/provisioning/base-containers
-  BASE_CONTAINERS_UPSTREAM_TAG: "0.6.0"
+  BASE_CONTAINERS_UPSTREAM_TAG: "0.6.1"
   CICD_PIPELINES_FLOW_IMAGE: "${CICD_PIPELINES_REGISTRY}/cicd-runner-sbtdockertofu:${CICD_PIPELINES_RUNNER_TAG}"
   # Recipe images — house runners with the toolbox baked in. Toolchains are an
   # image concern (base-containers entry images composed in runners/), never

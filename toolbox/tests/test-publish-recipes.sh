@@ -237,6 +237,19 @@ assert_equal "release-assets: refuses branch pipelines" "1" \
   "$(cd "$WORK/project" && TOMSHLEY_CICD_TAG="" TOMSHLEY_CICD_REF_SLUG=develop TOMSHLEY_CICD_COMMIT_SHA=abc12345 \
      bash "$TOOLBOX_ROOT/publish/release-assets.sh" >/dev/null 2>&1; echo $?)"
 
+printf 'license text\n' > "$WORK/project/LICENSE"
+: > "$REQUEST_LOG"
+(cd "$WORK/project" && TOMSHLEY_CICD_TAG=v1.2.3 TOMSHLEY_CICD_PROJECT_DIR="$WORK/project" \
+  TOMSHLEY_CICD_RELEASE_CHECKSUM_FILE=SHA256SUMS TOMSHLEY_CICD_RELEASE_EXTRA_ASSETS="LICENSE" \
+  TOMSHLEY_CICD_RELEASE_API_URL='https://registry.invalid/projects/1/releases' \
+  bash "$TOOLBOX_ROOT/publish/release-assets.sh" >/dev/null)
+assert_equal "release-assets: extras upload beside binaries + checksum" "4" "$(grep -c -- '--upload-file' "$REQUEST_LOG")"
+assert_contains "release-assets: link payload names extra asset" "$(grep -- '--request POST' "$REQUEST_LOG")" '"name": "LICENSE"'
+
+assert_equal "release-assets: a missing extra asset fails closed" "1" \
+  "$(cd "$WORK/project" && TOMSHLEY_CICD_TAG=v1.2.3 TOMSHLEY_CICD_PROJECT_DIR="$WORK/project" \
+     TOMSHLEY_CICD_RELEASE_EXTRA_ASSETS="MISSING.md" bash "$TOOLBOX_ROOT/publish/release-assets.sh" >/dev/null 2>&1; echo $?)"
+
 # --- image tag guard ----------------------------------------------------------
 # The helper itself stays CI-independent: no platform-native variables.
 leaks="$(grep -oE 'CI_[A-Z_]+|GITLAB_[A-Z_]+|BITBUCKET_[A-Z_]+|GITHUB_[A-Z_]+' \
