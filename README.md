@@ -479,4 +479,4 @@ See [ROADMAP.md](ROADMAP.md) for planned milestones.
 
 ## License
 
-Apache License 2.0 — see [LICENSE.md](LICENSE.md).
+Apache License 2.0 — see [LICENSE](LICENSE).
